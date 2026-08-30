@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: phd_mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max-connections=1000
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: phd_entrance_db
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: phd_backend
+    command: sh -c "python scripts/create_default_admin.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=phd_entrance_db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - SECRET_KEY=9a6c764e528b368c7be8e1f0e2bfcd15d481b7e6d0a7fca5c52eb6b5c00e1234
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+    depends_on:
+      - mysql
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: phd_frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

@@ -1,0 +1,338 @@
+[
+  {
+    "Module": "Startup",
+    "Test Area": "Imports Check",
+    "Status": "PASSED",
+    "Observation": "All backend modules and main routers imported cleanly.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Admin Auth",
+    "Test Area": "Valid Credentials",
+    "Status": "PASSED",
+    "Observation": "Super admin logged in successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Admin Auth",
+    "Test Area": "Invalid Password",
+    "Status": "PASSED",
+    "Observation": "Rejected invalid password correctly with HTTP 401.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Admin Auth",
+    "Test Area": "No Token Security",
+    "Status": "PASSED",
+    "Observation": "Protected route rejected requests lacking authorization.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Departments",
+    "Test Area": "Create Department",
+    "Status": "PASSED",
+    "Observation": "Created department 'QA-TEST-CS' successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Departments",
+    "Test Area": "Duplicate Validation",
+    "Status": "PASSED",
+    "Observation": "Prevented duplicate department code mapping correctly.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Exam Sessions",
+    "Test Area": "Create Session",
+    "Status": "PASSED",
+    "Observation": "Created live exam session for date 2026-07-15 successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Exam Sessions",
+    "Test Area": "Duplicate Active Session Check",
+    "Status": "PASSED",
+    "Observation": "Blocked duplicate active session name for same date.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Candidate Upload",
+    "Test Area": "Valid Excel Upload",
+    "Status": "PASSED",
+    "Observation": "Parsed candidate excel sheet: successful=1",
+    "Fix": "None"
+  },
+  {
+    "Module": "Photo Mapping",
+    "Test Area": "Photos Directory Scan",
+    "Status": "PASSED",
+    "Observation": "Executed photos directories remapping without crash.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Question Bank",
+    "Test Area": "Upload exactly 70 questions",
+    "Status": "PASSED",
+    "Observation": "Enforced and accepted exactly 70 questions.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Question Bank",
+    "Test Area": "Block non-70 questions",
+    "Status": "PASSED",
+    "Observation": "Blocked 68 questions upload correctly.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Candidate Login",
+    "Test Area": "Valid Credentials Login",
+    "Status": "PASSED",
+    "Observation": "Candidate authenticated successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Exam Start Lock",
+    "Test Area": "Future Exam Lock",
+    "Status": "PASSED",
+    "Observation": "Locked Candidate out of exam session prior to start time.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Exam Start Lock",
+    "Test Area": "Live Exam Access",
+    "Status": "PASSED",
+    "Observation": "Allowed Candidate into live exam session successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Security",
+    "Test Area": "Candidate Questions Leak Check",
+    "Status": "PASSED",
+    "Observation": "Candidate APIs omit correct answer mappings.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Exam Interface",
+    "Test Area": "Start Exam Attempt",
+    "Status": "PASSED",
+    "Observation": "Created attempt=16 with 70 shuffled questions.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Exam Interface",
+    "Test Area": "Save Answer Autosave",
+    "Status": "PASSED",
+    "Observation": "Autosave choice saved correctly to database.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Submit/Result",
+    "Test Area": "PASS score boundary",
+    "Status": "PASSED",
+    "Observation": "Scored exactly 28: marked result as QUALIFIED.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Submit/Result",
+    "Test Area": "Submitted Attempt Lock",
+    "Status": "PASSED",
+    "Observation": "Blocked answer modification requests on finalized attempt.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Security",
+    "Test Area": "Result Keys Leak Check",
+    "Status": "PASSED",
+    "Observation": "Candidate results API does not expose correct options or explanations.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Admin Reports",
+    "Test Area": "Summary Stats Cards",
+    "Status": "PASSED",
+    "Observation": "Summary counters: appeared=4, passed=1",
+    "Fix": "None"
+  },
+  {
+    "Module": "Exports",
+    "Test Area": "Overall Leaderboard Excel",
+    "Status": "PASSED",
+    "Observation": "Generated overall spreadsheet download stream successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Exports",
+    "Test Area": "Candidate Score Card PDF",
+    "Status": "PASSED",
+    "Observation": "Generated ReportLab candidate report sheet PDF stream.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Security",
+    "Test Area": "Candidate Role Isolation",
+    "Status": "PASSED",
+    "Observation": "Candidate tokens are correctly blocked from accessing Admin endpoints.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Security",
+    "Test Area": "Admin Role Isolation",
+    "Status": "PASSED",
+    "Observation": "Admin tokens are correctly blocked from candidate exam endpoints.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Manual Candidate Add Valid",
+    "Status": "PASSED",
+    "Observation": "Manually inserted candidate successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Manual Add Duplicate Check",
+    "Status": "PASSED",
+    "Observation": "Prevented duplicate manual registration successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Manual Add Invalid DOB Check",
+    "Status": "PASSED",
+    "Observation": "Rejected bad DOB format correctly.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Manual Add Invalid Subject Check",
+    "Status": "PASSED",
+    "Observation": "Rejected invalid applied subject successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Delete Single Candidate",
+    "Status": "PASSED",
+    "Observation": "Permanently deleted single candidate record.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Delete Bulk Candidates",
+    "Status": "PASSED",
+    "Observation": "Permanently bulk deleted selected candidate records.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Delete Single Question",
+    "Status": "PASSED",
+    "Observation": "Permanently deleted single question bank record.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Delete Bulk Questions",
+    "Status": "PASSED",
+    "Observation": "Permanently bulk-deleted questions successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Delete Department Question Bank",
+    "Status": "PASSED",
+    "Observation": "Permanently wiped entire department question bank.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Candidate Token Deletion Block",
+    "Status": "PASSED",
+    "Observation": "Candidate token was blocked from calling admin delete endpoints.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Delete Exam Session Cascade",
+    "Status": "PASSED",
+    "Observation": "Permanently deleted exam session with unassignment successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 10",
+    "Test Area": "Delete Department Cascade",
+    "Status": "PASSED",
+    "Observation": "Permanently deleted department with transaction cascades successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 11",
+    "Test Area": "Fullscreen Event Log",
+    "Status": "PASSED",
+    "Observation": "Fullscreen event logged successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 11",
+    "Test Area": "Start Attempt Lock",
+    "Status": "PASSED",
+    "Observation": "Exam attempt started with device-A lock.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 11",
+    "Test Area": "Device Lock Enforcement",
+    "Status": "PASSED",
+    "Observation": "Blocked device-B with 423 Locked.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 11",
+    "Test Area": "Admin Control Query",
+    "Status": "PASSED",
+    "Observation": "Admin lookup retrieved candidate state, can_reopen = True.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 11",
+    "Test Area": "Admin Reopen Override",
+    "Status": "PASSED",
+    "Observation": "Override cleared device lock status successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 11",
+    "Test Area": "Reopened Device Resume",
+    "Status": "PASSED",
+    "Observation": "Resumed exam on device-B successfully.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 11",
+    "Test Area": "Device Transfer Lockout",
+    "Status": "PASSED",
+    "Observation": "Device-A is now locked out after transfer.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 11",
+    "Test Area": "Final Submit Attempt",
+    "Status": "PASSED",
+    "Observation": "Attempt finalized on device-B.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 11",
+    "Test Area": "Prevent Rewrite Check",
+    "Status": "PASSED",
+    "Observation": "Blocked start/current after final submission.",
+    "Fix": "None"
+  },
+  {
+    "Module": "Phase 11",
+    "Test Area": "Admin Reopen Completed Block",
+    "Status": "PASSED",
+    "Observation": "Blocked reopen of submitted attempt correctly.",
+    "Fix": "None"
+  }
+]

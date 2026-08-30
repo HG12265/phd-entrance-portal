@@ -1,0 +1,638 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Sidebar from '../../components/Sidebar';
+import api, {
+  getReportSummary,
+  getSubjectSummary,
+  getOverallLeaderboard,
+  getSubjectLeaderboard,
+  getAbsentees,
+  downloadOverallExcel,
+  downloadSubjectExcel,
+  downloadAbsenteesExcel,
+  downloadCandidatePdf
+} from '../../services/api';
+
+export default function Reports() {
+  const navigate = useNavigate();
+
+  // Filter states
+  const [sessions, setSessions] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selectedSession, setSelectedSession] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [resultStatus, setResultStatus] = useState(''); // PASS / FAIL / All
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Report aggregates
+  const [summary, setSummary] = useState(null);
+  const [subjectSummary, setSubjectSummary] = useState([]);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+
+  // Tab views
+  const [activeTab, setActiveTab] = useState('overall'); // 'overall' | 'subject' | 'absentees'
+  const [leaderboardData, setLeaderboardData] = useState({ items: [], total: 0, page: 1, limit: 20, pages: 0 });
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [downloadingPdfId, setDownloadingPdfId] = useState(null);
+
+  // Fetch session + department filters on mount
+  useEffect(() => {
+    const fetchFilters = async () => {
+      try {
+        const [sessionRes, deptRes] = await Promise.all([
+          api.get('/api/admin/exam-sessions/'),
+          api.get('/api/admin/departments')
+        ]);
+        setSessions(sessionRes.data);
+        setDepartments(deptRes.data);
+        
+        // Auto-select first session if available
+        if (sessionRes.data.length > 0) {
+          setSelectedSession(sessionRes.data[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to load filter drop-downs:', err);
+      }
+    };
+    fetchFilters();
+  }, []);
+
+  // Fetch Summary statistics
+  const fetchSummaryStats = async () => {
+    setSummaryLoading(true);
+    try {
+      const [sumRes, subjRes] = await Promise.all([
+        getReportSummary({ exam_session_id: selectedSession || undefined, department_id: selectedDepartment || undefined }),
+        getSubjectSummary({ exam_session_id: selectedSession || undefined })
+      ]);
+      setSummary(sumRes.data);
+      setSubjectSummary(subjRes.data);
+    } catch (err) {
+      console.error('Failed to load summaries:', err);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  // Fetch Leaderboard based on active tab
+  const fetchTabLeaderboard = async () => {
+    setLeaderboardLoading(true);
+    try {
+      const params = {
+        exam_session_id: selectedSession || undefined,
+        result_status: resultStatus || undefined,
+        search: searchQuery || undefined,
+        page: currentPage,
+        limit: 20
+      };
+
+      if (activeTab === 'overall') {
+        const res = await getOverallLeaderboard({
+          ...params,
+          department_id: selectedDepartment || undefined
+        });
+        setLeaderboardData(res.data);
+      } else if (activeTab === 'subject') {
+        if (!selectedDepartment) {
+          setLeaderboardData({ items: [], total: 0, page: 1, limit: 20, pages: 0 });
+          setLeaderboardLoading(false);
+          return;
+        }
+        const res = await getSubjectLeaderboard(selectedDepartment, params);
+        setLeaderboardData(res.data);
+      } else if (activeTab === 'absentees') {
+        const res = await getAbsentees({
+          exam_session_id: selectedSession || undefined,
+          department_id: selectedDepartment || undefined,
+          search: searchQuery || undefined,
+          page: currentPage,
+          limit: 20
+        });
+        setLeaderboardData(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to load leaderboard list:', err);
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  };
+
+  // Trigger aggregate stats reloading on filter adjustments
+  useEffect(() => {
+    fetchSummaryStats();
+  }, [selectedSession, selectedDepartment]);
+
+  // Trigger leaderboard list reloading on filters/tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, selectedSession, selectedDepartment, resultStatus, searchQuery]);
+
+  useEffect(() => {
+    fetchTabLeaderboard();
+  }, [activeTab, selectedSession, selectedDepartment, resultStatus, searchQuery, currentPage]);
+
+  // Export handlers
+  const handleExportOverall = async () => {
+    try {
+      const res = await downloadOverallExcel({
+        exam_session_id: selectedSession || undefined,
+        department_id: selectedDepartment || undefined,
+        result_status: resultStatus || undefined
+      });
+      const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'overall_leaderboard.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to download overall leaderboard Excel sheet.');
+    }
+  };
+
+  const handleExportSubject = async () => {
+    if (!selectedDepartment) {
+      alert('Please select a department subject filter first.');
+      return;
+    }
+    try {
+      const res = await downloadSubjectExcel(selectedDepartment, {
+        exam_session_id: selectedSession || undefined,
+        result_status: resultStatus || undefined
+      });
+      const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const deptName = departments.find(d => d.id === parseInt(selectedDepartment))?.department_name || selectedDepartment;
+      link.setAttribute('download', `${deptName}_leaderboard.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to download subject leaderboard Excel sheet.');
+    }
+  };
+
+  const handleExportAbsentees = async () => {
+    try {
+      const res = await downloadAbsenteesExcel({
+        exam_session_id: selectedSession || undefined,
+        department_id: selectedDepartment || undefined
+      });
+      const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'absentees_list.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to download absentees Excel sheet.');
+    }
+  };
+
+  const handleDownloadCandidatePdf = async (candidateId, appNum) => {
+    setDownloadingPdfId(candidateId);
+    try {
+      const res = await downloadCandidatePdf(candidateId, { exam_session_id: selectedSession || undefined });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const safeAppNum = appNum.replace(/\//g, '-');
+      link.setAttribute('download', `candidate_report_${safeAppNum}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to download candidate report PDF card.');
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
+
+  return (
+    <div className="dashboard-layout">
+      <Sidebar />
+      <div className="page-container">
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div>
+            <h1 style={{ margin: 0, color: 'var(--text-primary)' }}>Reports & Performance Dash</h1>
+            <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)' }}>
+              Evaluate PhD Entrance scoring grids, check leaderboards, and print candidate report cards.
+            </p>
+          </div>
+        </div>
+
+        {/* Filters Controls Panel */}
+        <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+            
+            {/* Session Filter */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                Exam Session Schedule
+              </label>
+              <select 
+                className="w-full" 
+                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                value={selectedSession} 
+                onChange={(e) => setSelectedSession(e.target.value)}
+              >
+                <option value="">All Exam Sessions</option>
+                {sessions.map(s => (
+                  <option key={s.id} value={s.id}>{s.session_name} ({s.exam_title})</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Department Filter */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                Academic Subject
+              </label>
+              <select 
+                className="w-full" 
+                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                value={selectedDepartment} 
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+              >
+                <option value="">All Subjects</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.department_name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Result Status Filter (Applicable only to leaderboards) */}
+            {activeTab !== 'absentees' && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                  Evaluation Grade
+                </label>
+                <select 
+                  className="w-full" 
+                  style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                  value={resultStatus} 
+                  onChange={(e) => setResultStatus(e.target.value)}
+                >
+                  <option value="">All Candidates (PASS/FAIL)</option>
+                  <option value="PASS">PASS (Score &gt;= 28)</option>
+                  <option value="FAIL">FAIL (Score &lt; 28)</option>
+                </select>
+              </div>
+            )}
+
+            {/* Text Search Box */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                Search Student
+              </label>
+              <input 
+                type="text" 
+                placeholder="Name or Application Number" 
+                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', width: '100%' }}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+          </div>
+        </div>
+
+        {/* Statistics Performance Cards Grid */}
+        {summaryLoading ? (
+          <div style={{ textAlign: 'center', padding: '1.5rem', fontSize: '1.1rem' }}>Calculating stats aggregates...</div>
+        ) : (
+          summary && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+              
+              <div className="card" style={{ padding: '1rem', textAlign: 'center', borderTop: '4px solid #3b82f6' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Total Registered</span>
+                <h2 style={{ fontSize: '1.75rem', margin: '0.25rem 0' }}>{summary.total_candidates}</h2>
+              </div>
+              
+              <div className="card" style={{ padding: '1rem', textAlign: 'center', borderTop: '4px solid #10b981' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Appeared</span>
+                <h2 style={{ fontSize: '1.75rem', margin: '0.25rem 0' }}>{summary.appeared}</h2>
+                <small style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>
+                  ({summary.submitted} manual / {summary.auto_submitted} auto)
+                </small>
+              </div>
+
+              <div className="card" style={{ padding: '1rem', textAlign: 'center', borderTop: '4px solid #f59e0b' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Absent</span>
+                <h2 style={{ fontSize: '1.75rem', margin: '0.25rem 0' }}>{summary.absent}</h2>
+              </div>
+
+              <div className="card" style={{ padding: '1rem', textAlign: 'center', borderTop: '4px solid #10b981' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Passed</span>
+                <h2 style={{ fontSize: '1.75rem', margin: '0.25rem 0', color: 'var(--success-color)' }}>{summary.passed}</h2>
+                <small style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>({summary.pass_percentage}%)</small>
+              </div>
+
+              <div className="card" style={{ padding: '1rem', textAlign: 'center', borderTop: '4px solid #ef4444' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Failed</span>
+                <h2 style={{ fontSize: '1.75rem', margin: '0.25rem 0', color: 'var(--danger-color)' }}>{summary.failed}</h2>
+              </div>
+
+              <div className="card" style={{ padding: '1rem', textAlign: 'center', borderTop: '4px solid #8b5cf6' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Avg Score</span>
+                <h2 style={{ fontSize: '1.75rem', margin: '0.25rem 0' }}>{summary.average_score}</h2>
+              </div>
+
+              <div className="card" style={{ padding: '1rem', textAlign: 'center', borderTop: '4px solid #ec4899' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>High / Low</span>
+                <h2 style={{ fontSize: '1.4rem', margin: '0.5rem 0' }}>{summary.highest_score} / {summary.lowest_score}</h2>
+              </div>
+
+            </div>
+          )
+        )}
+
+        {/* Export Buttons bar */}
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={handleExportOverall}>
+            📊 Export Overall Excel
+          </button>
+          <button className="btn btn-secondary" onClick={handleExportSubject} disabled={!selectedDepartment}>
+            📊 Export Subject Excel {!selectedDepartment && '(Select Subject)'}
+          </button>
+          <button className="btn btn-secondary" onClick={handleExportAbsentees}>
+            📊 Export Absentees Excel
+          </button>
+        </div>
+
+        {/* Subject summary breakdown table */}
+        <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+          <h3 className="card-title" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem', textAlign: 'left' }}>
+            Subject Breakdown Statistics
+          </h3>
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Department / Subject</th>
+                  <th>Registered</th>
+                  <th>Appeared</th>
+                  <th>Absent</th>
+                  <th>Passed</th>
+                  <th>Failed</th>
+                  <th>Average Score</th>
+                  <th>Highest Score</th>
+                  <th>Lowest Score</th>
+                  <th>Q.Bank Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subjectSummary.length === 0 ? (
+                  <tr>
+                    <td colSpan="10" style={{ textAlign: 'center' }}>No subjects summaries calculated.</td>
+                  </tr>
+                ) : (
+                  subjectSummary.map((sub) => (
+                    <tr key={sub.department_id}>
+                      <td style={{ textAlign: 'left' }}><strong>{sub.department_name}</strong></td>
+                      <td>{sub.total_candidates}</td>
+                      <td>{sub.appeared}</td>
+                      <td>{sub.absent}</td>
+                      <td><span style={{ color: 'var(--success-color)', fontWeight: 600 }}>{sub.passed}</span></td>
+                      <td><span style={{ color: 'var(--danger-color)', fontWeight: 600 }}>{sub.failed}</span></td>
+                      <td>{sub.average_score}</td>
+                      <td><strong>{sub.highest_score}</strong></td>
+                      <td>{sub.lowest_score}</td>
+                      <td>
+                        <span style={{
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          backgroundColor: sub.is_question_bank_ready ? '#d1fae5' : '#fef2f2',
+                          color: sub.is_question_bank_ready ? '#065f46' : '#991b1b'
+                        }}>
+                          {sub.is_question_bank_ready ? '70 Qs Ready' : 'Pending'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Tab Selection */}
+        <div style={{ display: 'flex', borderBottom: '2px solid var(--border-color)', marginBottom: '1.5rem' }}>
+          <button 
+            style={{
+              padding: '0.75rem 1.5rem',
+              border: 'none',
+              backgroundColor: 'transparent',
+              borderBottom: activeTab === 'overall' ? '3px solid var(--primary-color)' : 'none',
+              fontWeight: activeTab === 'overall' ? 700 : 500,
+              color: activeTab === 'overall' ? 'var(--primary-color)' : 'var(--text-secondary)',
+              cursor: 'pointer'
+            }}
+            onClick={() => { setActiveTab('overall'); setCurrentPage(1); }}
+          >
+            Overall Leaderboard
+          </button>
+          <button 
+            style={{
+              padding: '0.75rem 1.5rem',
+              border: 'none',
+              backgroundColor: 'transparent',
+              borderBottom: activeTab === 'subject' ? '3px solid var(--primary-color)' : 'none',
+              fontWeight: activeTab === 'subject' ? 700 : 500,
+              color: activeTab === 'subject' ? 'var(--primary-color)' : 'var(--text-secondary)',
+              cursor: 'pointer'
+            }}
+            onClick={() => { setActiveTab('subject'); setCurrentPage(1); }}
+          >
+            Subject-wise Leaderboard
+          </button>
+          <button 
+            style={{
+              padding: '0.75rem 1.5rem',
+              border: 'none',
+              backgroundColor: 'transparent',
+              borderBottom: activeTab === 'absentees' ? '3px solid var(--primary-color)' : 'none',
+              fontWeight: activeTab === 'absentees' ? 700 : 500,
+              color: activeTab === 'absentees' ? 'var(--primary-color)' : 'var(--text-secondary)',
+              cursor: 'pointer'
+            }}
+            onClick={() => { setActiveTab('absentees'); setCurrentPage(1); }}
+          >
+            Absentees Logs
+          </button>
+        </div>
+
+        {/* Leaderboards Content cards */}
+        <div className="card" style={{ padding: '1.5rem' }}>
+          {leaderboardLoading ? (
+            <div style={{ textAlign: 'center', padding: '3rem' }}>Fetching leaderboard lists...</div>
+          ) : (
+            <div>
+              {activeTab === 'subject' && !selectedDepartment ? (
+                <div className="alert alert-warning" style={{ margin: 0 }}>
+                  ⚠️ Please select an <strong>Academic Subject</strong> from the dropdown filters above to load the subject-wise leaderboard list.
+                </div>
+              ) : leaderboardData.items.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  No candidate logs match current filter criteria.
+                </div>
+              ) : (
+                <div>
+                  <div className="table-container">
+                    <table className="table">
+                      <thead>
+                        {activeTab === 'absentees' ? (
+                          <tr>
+                            <th>S.No</th>
+                            <th>Application Number</th>
+                            <th>Student Name</th>
+                            <th>Email Address</th>
+                            <th>Mobile No</th>
+                            <th>Subject Subject</th>
+                            <th>Session Name</th>
+                          </tr>
+                        ) : (
+                          <tr>
+                            <th>Rank</th>
+                            <th>Application Number</th>
+                            <th>Student Name</th>
+                            {activeTab === 'overall' && <th>Subject Subject</th>}
+                            <th>Score</th>
+                            <th>Correct</th>
+                            <th>Wrong</th>
+                            <th>Unanswered</th>
+                            <th>Result</th>
+                            <th>Submission</th>
+                            <th>Time</th>
+                            <th>Actions</th>
+                          </tr>
+                        )}
+                      </thead>
+                      <tbody>
+                        {leaderboardData.items.map((item, index) => {
+                          if (activeTab === 'absentees') {
+                            return (
+                              <tr key={item.candidate_id}>
+                                <td><strong>{(currentPage - 1) * 20 + index + 1}</strong></td>
+                                <td><span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{item.application_number}</span></td>
+                                <td style={{ textAlign: 'left' }}>{item.name}</td>
+                                <td>{item.email || '-'}</td>
+                                <td>{item.mobile_number || '-'}</td>
+                                <td>{item.department_name}</td>
+                                <td>{item.exam_session_name}</td>
+                              </tr>
+                            );
+                          }
+
+                          const isPass = item.result_status === 'PASS';
+                          return (
+                            <tr key={item.candidate_id}>
+                              <td><strong>{item.rank}</strong></td>
+                              <td><span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{item.application_number}</span></td>
+                              <td style={{ textAlign: 'left' }}><strong>{item.name}</strong></td>
+                              {activeTab === 'overall' && <td style={{ textAlign: 'left' }}>{item.department_name}</td>}
+                              <td><strong style={{ fontSize: '1.05rem', color: 'var(--primary-color)' }}>{item.score}</strong></td>
+                              <td><span style={{ color: 'var(--success-color)' }}>{item.correct_count}</span></td>
+                              <td><span style={{ color: 'var(--danger-color)' }}>{item.wrong_count}</span></td>
+                              <td><span style={{ color: '#64748b' }}>{item.unanswered_count}</span></td>
+                              <td>
+                                <span style={{
+                                  padding: '0.2rem 0.5rem',
+                                  borderRadius: '4px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  backgroundColor: isPass ? '#d1fae5' : '#fef2f2',
+                                  color: isPass ? '#065f46' : '#991b1b'
+                                }}>
+                                  {item.result_status}
+                                </span>
+                              </td>
+                              <td>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                  {item.submission_type === 'manual' ? 'Manual' : 'Auto'}
+                                </span>
+                              </td>
+                              <td>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                  {item.submitted_time ? new Date(item.submitted_time).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                                  <button 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                                    onClick={() => navigate(`/admin/reports/candidate/${item.candidate_id}`)}
+                                  >
+                                    Review
+                                  </button>
+                                  <button 
+                                    className="btn btn-primary" 
+                                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                                    onClick={() => handleDownloadCandidatePdf(item.candidate_id, item.application_number)}
+                                    disabled={downloadingPdfId === item.candidate_id}
+                                  >
+                                    {downloadingPdfId === item.candidate_id ? '...' : 'PDF'}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination controller */}
+                  {leaderboardData.pages > 1 && (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', marginTop: '1.5rem' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      >
+                        Previous
+                      </button>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                        Page <strong>{currentPage}</strong> of {leaderboardData.pages} (Total: {leaderboardData.total})
+                      </span>
+                      <button 
+                        className="btn btn-secondary" 
+                        disabled={currentPage === leaderboardData.pages}
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, leaderboardData.pages))}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+

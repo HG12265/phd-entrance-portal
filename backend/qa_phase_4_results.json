@@ -1,0 +1,54 @@
+{
+  "1. Admin Login": {
+    "status": "PASS",
+    "observation": "Admin successfully authenticated."
+  },
+  "2. Template Download": {
+    "status": "PASS",
+    "observation": "Question Excel Template downloaded successfully."
+  },
+  "3. Dept Question Summary (Initial)": {
+    "status": "PASS",
+    "observation": "Summary details: active_questions: 0, is_ready: False"
+  },
+  "4. Validation check - Less than 70 questions": {
+    "status": "PASS",
+    "observation": "Successfully rejected 68 questions bank. Response message: Question upload validation failed: Excel has 68 valid questions instead of exactly 70."
+  },
+  "5. Validation check - Duplicate Question Numbers": {
+    "status": "PASS",
+    "observation": "Successfully rejected. Found error: Duplicate question number '5' in this Excel file."
+  },
+  "6. Validation check - Invalid Correct Option": {
+    "status": "PASS",
+    "observation": "Successfully rejected. Found error: Correct Option must be A, B, C, or D (or 1, 2, 3, 4), got 'X'."
+  },
+  "7. Valid Question Upload": {
+    "status": "PASS",
+    "observation": "Successfully uploaded exactly 70 valid questions."
+  },
+  "8. Dept Question Summary (Loaded)": {
+    "status": "PASS",
+    "observation": "Summary details: active_questions: 70, is_ready: True"
+  },
+  "9. Duplicate block test": {
+    "status": "PASS",
+    "observation": "Correctly rejected re-uploading without replace_existing=true flag."
+  },
+  "10. Replace Question Bank": {
+    "status": "PASS",
+    "observation": "Replaced successfully. Active question count: 70, Inactive: 70."
+  },
+  "11. Search Questions": {
+    "status": "PASS",
+    "observation": "Successfully searched and found question. ID: 85"
+  },
+  "12. Soft Delete Single Question": {
+    "status": "PASS",
+    "observation": "Question 1 soft-deleted. is_active flag: False"
+  },
+  "13. Soft Delete Department Questions": {
+    "status": "PASS",
+    "observation": "Successfully deactivated all questions for Department 1."
+  }
+}

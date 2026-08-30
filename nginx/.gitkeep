@@ -1,0 +1,2 @@
+# Nginx Configuration Directory
+# Custom configurations for reverse proxies or SSL termination can be placed here in later phases.

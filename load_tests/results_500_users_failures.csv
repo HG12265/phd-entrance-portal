@@ -1,0 +1,2 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,/api/candidate/exam/save-answer,HTTPError('502 Server Error: Bad Gateway for url: /api/candidate/exam/save-answer'),4,2026-07-16T06:11:59Z,2026-07-16T06:12:11Z
