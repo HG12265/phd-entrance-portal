@@ -6,7 +6,7 @@ import struct
 import subprocess
 import xml.etree.ElementTree as ET
 from typing import Optional
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageOps
 
 def extract_embedded_raster_image(data: bytes) -> Optional[Image.Image]:
     """
@@ -74,6 +74,29 @@ def extract_embedded_raster_image(data: bytes) -> Optional[Image.Image]:
                 continue
 
     return None
+
+
+def crop_image_whitespace(img: Image.Image, margin: int = 15) -> Image.Image:
+    """Crops excess white background margins to tightly frame vector graphics and chemical equations."""
+    try:
+        if img.mode in ('RGBA', 'LA'):
+            alpha = img.split()[-1]
+            rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+            rgb_img.paste(img, mask=alpha)
+        else:
+            rgb_img = img.convert('RGB')
+
+        inverted = ImageOps.invert(rgb_img)
+        bbox = inverted.getbbox()
+        if bbox:
+            left = max(bbox[0] - margin, 0)
+            top = max(bbox[1] - margin, 0)
+            right = min(bbox[2] + margin, img.width)
+            bottom = min(bbox[3] + margin, img.height)
+            return img.crop((left, top, right, bottom))
+    except Exception:
+        pass
+    return img
 
 
 def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
@@ -216,7 +239,7 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
             tp = (margin + (rx - min_x) * scale_x, margin + (ry - min_y) * scale_y)
             draw.text(tp, txt, fill=(0, 0, 0, 255))
 
-        return img
+        return crop_image_whitespace(img)
     except Exception:
         return None
 
@@ -302,18 +325,17 @@ def render_wmf_pure_python(data: bytes) -> Optional[Image.Image]:
             pts = [(margin + (p[0] - min_x) * scale_x, margin + (p[1] - min_y) * scale_y) for p in poly]
             draw.polygon(pts, outline=(0, 0, 0, 255))
 
-        return img
+        return crop_image_whitespace(img)
     except Exception:
         return None
 
 
 def render_emf_wmf_libreoffice(data: bytes) -> Optional[Image.Image]:
-    """Renders EMF/WMF using LibreOffice CLI if installed in environment."""
+    """Renders EMF/WMF using LibreOffice CLI if installed in environment, cropped tightly."""
     if not data:
         return None
     try:
         import tempfile
-        # Determine extension based on magic header
         ext = ".emf" if (len(data) >= 44 and data[40:44] == b" EMF") else ".wmf"
         with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp_in:
             tmp_in.write(data)
@@ -327,10 +349,11 @@ def render_emf_wmf_libreoffice(data: bytes) -> Optional[Image.Image]:
         if os.path.exists(png_path):
             img = Image.open(png_path)
             img.load()
+            cropped = crop_image_whitespace(img)
             os.remove(png_path)
             if os.path.exists(tmp_in_path):
                 os.remove(tmp_in_path)
-            return img
+            return cropped
         if os.path.exists(tmp_in_path):
             os.remove(tmp_in_path)
     except Exception:
@@ -433,7 +456,8 @@ def render_emf_wmf_gdi(data: bytes) -> Optional[Image.Image]:
             gdi32.DeleteDC(hdc_mem)
             user32.ReleaseDC(0, hdc_screen)
 
-            return Image.frombytes('RGBA', (target_w, target_h), raw_bytes, 'raw', 'BGRA')
+            raw_img = Image.frombytes('RGBA', (target_w, target_h), raw_bytes, 'raw', 'BGRA')
+            return crop_image_whitespace(raw_img)
         finally:
             gdi32.DeleteEnhMetaFile(hemf)
     except Exception:
