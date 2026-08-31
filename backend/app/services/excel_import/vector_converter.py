@@ -78,8 +78,8 @@ def extract_embedded_raster_image(data: bytes) -> Optional[Image.Image]:
 def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
     """
     Universal Pure Python EMF vector drawing interpreter.
-    Dynamically scans coordinate bounds across all draw commands and renders
-    crisp black vector drawings on a clean white canvas.
+    Dynamically scans coordinate bounds across drawing commands (excluding origin (0,0)),
+    initializes curr_pt cleanly, and renders crisp black vector drawings on white canvas.
     """
     if not data or len(data) < 80:
         return None
@@ -88,7 +88,7 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
         if itype != 1 or data[40:44] != b' EMF':
             return None
 
-        # 1. Collect all vector points across records to find dynamic bounds
+        # 1. Collect points (excluding 0,0 frame initialization origins)
         raw_pts = []
         off = 0
         while off < len(data) - 8:
@@ -98,14 +98,16 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
 
             if itype in (27, 54) and len(rec) >= 16: # MOVETOEX, LINETO
                 px, py = struct.unpack('<ii', rec[8:16])
-                raw_pts.append((px, py))
+                if (px, py) != (0, 0):
+                    raw_pts.append((px, py))
             elif itype in (74, 82) and len(rec) >= 28: # POLYGON16, POLYDRAW16
                 cpt = struct.unpack('<I', rec[8:12])[0]
                 pts_start = 28
                 for i in range(min(cpt, 500)):
                     if pts_start + (i+1)*4 <= len(rec):
                         px, py = struct.unpack('<hh', rec[pts_start + i*4 : pts_start + (i+1)*4])
-                        raw_pts.append((px, py))
+                        if (px, py) != (0, 0):
+                            raw_pts.append((px, py))
             elif itype == 75 and len(rec) >= 32: # POLYPOLYGON16
                 cPolys = struct.unpack('<I', rec[24:28])[0]
                 counts_offset = 32
@@ -118,7 +120,8 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
                             idx = curr_p + p_idx
                             if pts_offset + (idx+1)*4 <= len(rec):
                                 px, py = struct.unpack('<hh', rec[pts_offset + idx*4 : pts_offset + (idx+1)*4])
-                                raw_pts.append((px, py))
+                                if (px, py) != (0, 0):
+                                    raw_pts.append((px, py))
                         curr_p += cnt
 
             off += nsize
@@ -130,17 +133,17 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
         min_y, max_y = min(p[1] for p in raw_pts), max(p[1] for p in raw_pts)
         dw, dh = max(max_x - min_x, 1), max(max_y - min_y, 1)
 
-        target_w = 400
-        target_h = max(int(target_w * (dh / dw)), 80)
+        target_w = 300
+        target_h = max(int(target_w * (dh / dw)), 60)
         img = Image.new('RGBA', (target_w, target_h), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
 
-        margin = 20
+        margin = 15
         scale_x = (target_w - 2 * margin) / dw
         scale_y = (target_h - 2 * margin) / dh
 
         off = 0
-        curr_pt = (margin, margin)
+        curr_pt = None
         pen_color = (0, 0, 0, 255)
         pen_width = 3
 
@@ -162,7 +165,8 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
             elif itype == 54 and len(rec) >= 16: # LINETO
                 px, py = struct.unpack('<ii', rec[8:16])
                 next_pt = (margin + (px - min_x) * scale_x, margin + (py - min_y) * scale_y)
-                draw.line([curr_pt, next_pt], fill=pen_color, width=pen_width)
+                if curr_pt is not None:
+                    draw.line([curr_pt, next_pt], fill=pen_color, width=pen_width)
                 curr_pt = next_pt
 
             elif itype == 82 and len(rec) >= 28: # POLYDRAW16
@@ -180,7 +184,8 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
                     if typ == 0x06:
                         curr_pt = pts[i]
                     elif typ in (0x02, 0x04):
-                        draw.line([curr_pt, pts[i]], fill=pen_color, width=pen_width)
+                        if curr_pt is not None:
+                            draw.line([curr_pt, pts[i]], fill=pen_color, width=pen_width)
                         curr_pt = pts[i]
 
             elif itype == 74 and len(rec) >= 28: # POLYGON16
@@ -222,8 +227,8 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
 def render_wmf_pure_python(data: bytes) -> Optional[Image.Image]:
     """
     Universal Pure Python WMF vector drawing interpreter.
-    Dynamically scans coordinate bounds across all draw commands and renders
-    crisp black vector drawings on a clean white canvas.
+    Dynamically scans coordinate bounds across drawing commands (excluding origin (0,0)),
+    initializes curr_pt cleanly, and renders crisp black vector drawings on white canvas.
     """
     if not data or len(data) < 18:
         return None
@@ -237,13 +242,15 @@ def render_wmf_pure_python(data: bytes) -> Optional[Image.Image]:
             rec = data[scan_off:scan_off + rd_size*2]
             if rd_fn in (0x0214, 0x0213) and len(rec) >= 10:
                 py, px = struct.unpack('<hh', rec[6:10])
-                raw_pts.append((px, py))
+                if (px, py) != (0, 0):
+                    raw_pts.append((px, py))
             elif rd_fn == 0x0324 and len(rec) >= 8:
                 cpt = struct.unpack('<h', rec[6:8])[0]
                 for i in range(cpt):
                     if 8 + (i+1)*4 <= len(rec):
                         py, px = struct.unpack('<hh', rec[8 + i*4 : 8 + (i+1)*4])
-                        raw_pts.append((px, py))
+                        if (px, py) != (0, 0):
+                            raw_pts.append((px, py))
             scan_off += rd_size * 2
 
         if not raw_pts:
@@ -253,17 +260,17 @@ def render_wmf_pure_python(data: bytes) -> Optional[Image.Image]:
         min_y, max_y = min(p[1] for p in raw_pts), max(p[1] for p in raw_pts)
         dw, dh = max(max_x - min_x, 1), max(max_y - min_y, 1)
 
-        target_w = 400
-        target_h = max(int(target_w * (dh / dw)), 80)
+        target_w = 300
+        target_h = max(int(target_w * (dh / dw)), 60)
         img = Image.new('RGBA', (target_w, target_h), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
 
-        margin = 20
+        margin = 15
         scale_x = (target_w - 2 * margin) / dw
         scale_y = (target_h - 2 * margin) / dh
 
         off = 22 if struct.unpack('<I', data[:4])[0] == 0x9ac6cdd7 else 18
-        curr_pt = (margin, margin)
+        curr_pt = None
         pen_color = (0, 0, 0, 255)
         pen_width = 3
 
@@ -285,7 +292,8 @@ def render_wmf_pure_python(data: bytes) -> Optional[Image.Image]:
             elif rd_fn == 0x0213 and len(rec) >= 10: # LINETO
                 py, px = struct.unpack('<hh', rec[6:10])
                 next_pt = (margin + (px - min_x) * scale_x, margin + (py - min_y) * scale_y)
-                draw.line([curr_pt, next_pt], fill=pen_color, width=pen_width)
+                if curr_pt is not None:
+                    draw.line([curr_pt, next_pt], fill=pen_color, width=pen_width)
                 curr_pt = next_pt
 
             elif rd_fn == 0x0324 and len(rec) >= 8: # POLYGON
