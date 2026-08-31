@@ -10,7 +10,6 @@ const mathJaxConfig = {
     inlineMath: [
       ["$", "$"],
       ["\\(", "\\)"],
-      ["(", ")"],
       ["[tex]", "[/tex]"]
     ],
     displayMath: [

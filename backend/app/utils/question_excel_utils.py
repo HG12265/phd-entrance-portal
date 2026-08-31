@@ -82,11 +82,42 @@ def parse_correct_option(value: Any) -> Optional[str]:
         
     return None
 
+LATEX_MATH_KEYWORDS = [
+    r"\frac", r"\sqrt", r"\int", r"\sum", r"\matrix", r"\lim", r"\alpha", r"\beta",
+    r"\gamma", r"\delta", r"\theta", r"\pi", r"\infty", r"\cdot", r"\vec", r"\hat",
+    r"\le", r"\ge", r"\neq", r"\times", r"\div", r"\pm", r"\partial", r"\Delta", r"\Omega",
+    r"\rightarrow", r"\leftarrow", r"\sub", r"\sup", r"\binom", r"\begin{", r"\end{"
+]
+
+def normalize_latex_math_in_text(text: str) -> str:
+    """
+    Detects unwrapped LaTeX math commands (e.g. \\frac{a}{b}, \\sqrt{x}) in text
+    and ensures they are enclosed in LaTeX math delimiters \\(...\\) for MathJax.
+    """
+    if not text:
+        return ""
+        
+    val_str = str(text).strip()
+    
+    # If text contains math commands but doesn't have $ or \( delimiters
+    has_latex_cmd = any(kw in val_str for kw in LATEX_MATH_KEYWORDS)
+    has_delimiters = ("$" in val_str) or ("\\(" in val_str) or ("\\[" in val_str)
+    
+    if has_latex_cmd and not has_delimiters:
+        def wrap_match(match):
+            m = match.group(0)
+            return f" \\({m}\\) "
+            
+        pattern = r'\\(?:frac|sqrt|int|sum|lim|binom)\{[^{}]*\}(?:\{[^{}]*\})?|\\(?:alpha|beta|gamma|delta|theta|pi|infty|cdot|vec|hat|le|ge|neq|times|div|pm|partial|Delta|Omega|rightarrow|leftarrow)'
+        normalized = re.sub(pattern, wrap_match, val_str)
+        return normalized.strip()
+        
+    return val_str
+
 def parse_marks(value: Any) -> int:
     if pd.isna(value):
         return 1
     try:
-        # Convert float like 1.0 to 1
         return int(float(value))
     except (ValueError, TypeError):
         return 1
@@ -95,8 +126,7 @@ def clean_question_text(value: Any) -> str:
     if pd.isna(value):
         return ""
     val_str = str(value).strip()
-    # Check if decimal float representations of integer exists, clean up (though not typical for question text)
-    return val_str
+    return normalize_latex_math_in_text(val_str)
 
 def validate_question_row(row: Dict[str, Any], row_no: int, row_images: Optional[Dict[str, Any]] = None) -> Tuple[bool, Optional[str], Optional[int]]:
     # 1. Validate question number

@@ -350,6 +350,14 @@ def upload_questions(
     from app.utils.image_converter import convert_image_bytes_to_png
     
     try:
+        from app.services.excel_import.xlsx_inspector import extract_all_xlsx_media_images
+        extracted_media = extract_all_xlsx_media_images(stored_path, image_dir, batch_id)
+        # If openpyxl misses any media, map them to question rows if needed
+    except Exception as inspect_err:
+        from app.logging_config import log_error
+        log_error(f"XLSX Media inspection warning: {inspect_err}")
+
+    try:
         from openpyxl import load_workbook
         wb = load_workbook(stored_path)
         ws = wb.active
@@ -369,7 +377,6 @@ def upload_questions(
                         col_num = getattr(anchor._from, 'col', 0)
                 
                 if row_num is not None:
-                    # Determine target field name based on column index
                     field_name = col_field_map.get(col_num, "question_text")
                     if field_name not in ["question_text", "option_a", "option_b", "option_c", "option_d"]:
                         field_name = "question_text"

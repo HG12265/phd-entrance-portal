@@ -126,11 +126,13 @@ def convert_image_bytes_to_png(img_bytes: bytes, target_filepath: str) -> bool:
     except Exception:
         pass
 
-    # 2. Windows GDI EMF / WMF Vector Renderer
+    # 2. Multi-Stage Vector Metafile Converter (.emf, .wmf, .vml)
     try:
-        gdi_img = render_emf_wmf_gdi(img_bytes)
-        if gdi_img:
-            gdi_img.save(target_filepath, "PNG")
+        from app.services.excel_import.vector_converter import convert_vector_metafile_to_png_bytes
+        png_data = convert_vector_metafile_to_png_bytes(img_bytes)
+        if png_data:
+            with open(target_filepath, "wb") as f:
+                f.write(png_data)
             return True
     except Exception:
         pass
