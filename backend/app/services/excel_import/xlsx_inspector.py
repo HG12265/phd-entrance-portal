@@ -59,7 +59,7 @@ def extract_excel_drawings_with_anchors(
     col_field_map: Dict[int, str]
 ) -> Dict[int, Dict[str, List[str]]]:
     """
-    Parses OpenXML xl/drawings/drawing*.xml and xl/drawings/_rels/drawing*.xml.rels directly from the .xlsx zip archive.
+    Parses OpenXML xl/drawings/drawing*.xml and xl/drawings/vmlDrawing*.vml directly from the .xlsx zip archive.
     Extracts 100% of images (EMF, WMF, VML, PNG, JPG, SVG), converts vector images to PNG,
     and maps them to exact Excel row number (1-indexed) and field name (question_text, option_a, etc.).
     """
@@ -74,13 +74,15 @@ def extract_excel_drawings_with_anchors(
         'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
         'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
         'v': 'urn:schemas-microsoft-com:vml',
-        'o': 'urn:schemas-microsoft-com:office:office'
+        'o': 'urn:schemas-microsoft-com:office:office',
+        'x': 'urn:schemas-microsoft-com:office:excel'
     }
 
     try:
         with zipfile.ZipFile(xlsx_filepath, 'r') as z:
             namelist = z.namelist()
             
+            # 1. Parse OpenXML Drawings (drawing*.xml)
             drawing_files = [f for f in namelist if f.startswith('xl/drawings/drawing') and f.endswith('.xml')]
             
             for d_file in drawing_files:
@@ -164,9 +166,100 @@ def extract_excel_drawings_with_anchors(
                                     row_field_images[row_num] = {}
                                 if field_name not in row_field_images[row_num]:
                                     row_field_images[row_num][field_name] = []
-                                row_field_images[row_num][field_name].append(web_url)
+                                if web_url not in row_field_images[row_num][field_name]:
+                                    row_field_images[row_num][field_name].append(web_url)
                 except Exception as d_err:
                     print(f"Error reading drawing XML {d_file}: {d_err}")
+
+            # 2. Parse VML Drawings (vmlDrawing*.vml)
+            vml_files = [f for f in namelist if 'vmlDrawing' in f and f.endswith('.vml')]
+            for v_file in vml_files:
+                v_base = os.path.basename(v_file)
+                rels_file = f"xl/drawings/_rels/{v_base}.rels"
+                rel_map = {}
+                if rels_file in namelist:
+                    try:
+                        rel_tree = ET.fromstring(z.read(rels_file))
+                        for r_node in rel_tree:
+                            r_id = r_node.attrib.get('Id')
+                            target = r_node.attrib.get('Target')
+                            if r_id and target:
+                                rel_map[r_id] = target
+                    except Exception:
+                        pass
+
+                try:
+                    v_tree = ET.fromstring(z.read(v_file))
+                    for shape in v_tree.findall('.//{urn:schemas-microsoft-com:vml}shape'):
+                        imgdata = shape.find('{urn:schemas-microsoft-com:vml}imagedata')
+                        if imgdata is None:
+                            continue
+
+                        relid = (
+                            imgdata.attrib.get('{urn:schemas-microsoft-com:office:office}relid') or
+                            imgdata.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+                        )
+                        if not relid or relid not in rel_map:
+                            continue
+
+                        target_media = rel_map[relid]
+                        if target_media.startswith('../'):
+                            target_media = f"xl/{target_media[3:]}"
+                        elif not target_media.startswith('xl/'):
+                            target_media = f"xl/media/{os.path.basename(target_media)}"
+
+                        if target_media not in namelist:
+                            continue
+
+                        media_bytes = z.read(target_media)
+                        if not media_bytes:
+                            continue
+
+                        row_num = None
+                        col_num = 1
+
+                        client_data = shape.find('{urn:schemas-microsoft-com:office:excel}ClientData')
+                        if client_data is not None:
+                            anchor_el = client_data.find('{urn:schemas-microsoft-com:office:excel}Anchor')
+                            if anchor_el is not None and anchor_el.text:
+                                parts = [p.strip() for p in anchor_el.text.split(',')]
+                                if len(parts) >= 3:
+                                    try:
+                                        col_num = int(parts[0])
+                                        row_num = int(parts[2]) + 1
+                                    except (ValueError, TypeError):
+                                        pass
+
+                        if row_num is not None:
+                            field_name = col_field_map.get(col_num, "question_text")
+                            if field_name not in ["question_text", "option_a", "option_b", "option_c", "option_d"]:
+                                field_name = "question_text"
+
+                            ext = os.path.splitext(target_media)[1].lower()
+                            img_filename = f"q_img_{batch_id}_r{row_num}_{field_name}_{uuid.uuid4().hex[:8]}.png"
+                            img_path = os.path.join(output_dir, img_filename)
+
+                            converted_ok = False
+                            if ext in ['.emf', '.wmf', '.vml']:
+                                png_bytes = convert_vector_metafile_to_png_bytes(media_bytes)
+                                if png_bytes:
+                                    with open(img_path, "wb") as f_out:
+                                        f_out.write(png_bytes)
+                                    converted_ok = True
+                            else:
+                                from app.utils.image_converter import convert_image_bytes_to_png
+                                converted_ok = convert_image_bytes_to_png(media_bytes, img_path)
+
+                            if converted_ok:
+                                web_url = f"/static/question_images/{img_filename}"
+                                if row_num not in row_field_images:
+                                    row_field_images[row_num] = {}
+                                if field_name not in row_field_images[row_num]:
+                                    row_field_images[row_num][field_name] = []
+                                if web_url not in row_field_images[row_num][field_name]:
+                                    row_field_images[row_num][field_name].append(web_url)
+                except Exception as v_err:
+                    print(f"Error parsing VML drawing {v_file}: {v_err}")
 
     except Exception as e:
         print(f"Error parsing xlsx drawings: {e}")
