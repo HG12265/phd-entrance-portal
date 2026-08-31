@@ -7,13 +7,13 @@ WORKDIR /app
 # - imagemagick: EMF/WMF/vector image conversion (primary tool for Wand)
 # - ghostscript: required by ImageMagick for PDF/PS handling (improves EMF support)
 # - libmagickwand-dev: development headers required by Wand Python bindings
-# - libmagickcore-6.q16-6-extra: extra ImageMagick codecs including WMF support
+# Note: python:3.12-slim uses Debian Trixie (13) — libmagickcore-6.q16-6-extra not available there
+# imagemagick pulls in the required codec libs automatically on Trixie
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     imagemagick \
     ghostscript \
     libmagickwand-dev \
-    libmagickcore-6.q16-6-extra \
     && rm -rf /var/lib/apt/lists/*
 
 # Patch ImageMagick policy.xml to allow reading EMF, WMF, and other formats
@@ -23,7 +23,6 @@ RUN POLICY_FILE=$(find /etc/ImageMagick-* -name policy.xml 2>/dev/null | head -1
         sed -i 's/rights="none" pattern="EMF"/rights="read|write" pattern="EMF"/g' "$POLICY_FILE" 2>/dev/null || true; \
         sed -i 's/rights="none" pattern="WMF"/rights="read|write" pattern="WMF"/g' "$POLICY_FILE" 2>/dev/null || true; \
         sed -i 's/rights="none" pattern="MSL"/rights="read|write" pattern="MSL"/g' "$POLICY_FILE" 2>/dev/null || true; \
-        sed -i 's/rights="none" pattern="TIFF"/rights="read|write" pattern="TIFF"/g' "$POLICY_FILE" 2>/dev/null || true; \
         sed -i 's/<policy domain="coder" rights="none" pattern="PDF"/<policy domain="coder" rights="read|write" pattern="PDF"/g' "$POLICY_FILE" 2>/dev/null || true; \
         echo "ImageMagick policy patched: $POLICY_FILE"; \
     else \
