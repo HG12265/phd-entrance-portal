@@ -470,15 +470,10 @@ def upload_questions(
                 return f"{raw}\n{img_tags}"
             return img_tags
 
-        # Determine primary image_path for database column
+        # Determine primary image_path for database column (only from question_text field)
         primary_image = None
         if row_imgs.get("question_text"):
             primary_image = row_imgs["question_text"][0]
-        else:
-            for f in ["option_a", "option_b", "option_c", "option_d"]:
-                if row_imgs.get(f):
-                    primary_image = row_imgs[f][0]
-                    break
 
         # Assemble clean row properties
         clean_row = {

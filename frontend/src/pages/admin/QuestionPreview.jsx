@@ -122,25 +122,7 @@ export default function QuestionPreview() {
                       </span>
                     </div>
 
-                    {q.image_path && !q.question_text?.includes(q.image_path) && (
-                      <div style={{ margin: '1rem 0 1rem 2rem', textAlign: 'left' }}>
-                        <img 
-                          src={getImageUrl(q.image_path)} 
-                          alt={`Question ${q.question_no} Image`} 
-                          style={{ 
-                            maxWidth: '100%', 
-                            maxHeight: '220px', 
-                            objectFit: 'contain', 
-                            borderRadius: '0.25rem', 
-                            border: 'none',
-                            padding: '0'
-                          }} 
-                          onError={(e) => {
-                            e.target.src = q.image_path;
-                          }}
-                        />
-                      </div>
-                    )}
+
 
                     {/* Options list */}
                     <div className="grid grid-2" style={{ gap: '1rem', paddingLeft: '2rem' }}>

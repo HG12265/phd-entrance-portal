@@ -297,25 +297,7 @@ export default function QuestionBank() {
                           <div style={{ fontWeight: 500, marginBottom: '0.5rem', color: '#1e293b' }}>
                             <MathText text={q.question_text} />
                           </div>
-                          {q.image_path && !q.question_text?.includes(q.image_path) && (
-                            <div style={{ margin: '0.5rem 0', textAlign: 'left' }}>
-                              <img 
-                                src={getImageUrl(q.image_path)} 
-                                alt="Question Image Thumbnail" 
-                                style={{ 
-                                  maxHeight: '60px', 
-                                  maxWidth: '120px', 
-                                  objectFit: 'contain', 
-                                  borderRadius: '0.25rem', 
-                                  border: 'none',
-                                  padding: '0'
-                                }} 
-                                onError={(e) => {
-                                  e.target.src = q.image_path;
-                                }}
-                              />
-                            </div>
-                          )}
+
                           <div className="grid grid-2" style={{ gap: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>
                             <div><strong style={{ color: q.correct_option === 'A' ? 'var(--success-color)' : 'inherit' }}>A:</strong> <MathText text={q.option_a} /></div>
                             <div><strong style={{ color: q.correct_option === 'B' ? 'var(--success-color)' : 'inherit' }}>B:</strong> <MathText text={q.option_b} /></div>

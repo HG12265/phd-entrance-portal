@@ -619,25 +619,7 @@ export default function ExamPage() {
                     </div>
                   )}
 
-                  {activeQuestion.image_path && !activeQuestion.question_text?.includes(activeQuestion.image_path) && (
-                    <div style={{ margin: '1rem 0', textAlign: 'center' }}>
-                      <img 
-                        src={getImageUrl(activeQuestion.image_path)} 
-                        alt={`Question ${currentIdx + 1} Image`} 
-                        style={{ 
-                          maxWidth: '100%', 
-                          maxHeight: '300px', 
-                          objectFit: 'contain', 
-                          borderRadius: '0.375rem', 
-                          border: 'none',
-                          padding: '0'
-                        }} 
-                        onError={(e) => {
-                          e.target.src = activeQuestion.image_path;
-                        }}
-                      />
-                    </div>
-                  )}
+
 
                   {activeQuestion.question_tamil && (
                     <div className="tamil-text" style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-color)', paddingTop: '1rem', marginTop: '1rem', lineHeight: 1.6 }}>
