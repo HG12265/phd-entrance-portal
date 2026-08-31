@@ -77,9 +77,9 @@ def extract_embedded_raster_image(data: bytes) -> Optional[Image.Image]:
 
 def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
     """
-    Pure Python EMF (Enhanced Metafile) vector drawing interpreter.
-    Parses EMF records (PolyDraw16, PolyPolygon16, Polygon16, LineTo, MoveTo, Pens, Brushes)
-    and draws them directly onto a PIL Image canvas without external dependencies.
+    Universal Pure Python EMF vector drawing interpreter.
+    Dynamically scans coordinate bounds across all draw commands and renders
+    crisp black vector drawings on a clean white canvas.
     """
     if not data or len(data) < 80:
         return None
@@ -88,52 +88,114 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
         if itype != 1 or data[40:44] != b' EMF':
             return None
 
-        left, top, right, bottom = struct.unpack('<iiii', data[8:24])
-        w = max(right - left, 10)
-        h = max(bottom - top, 10)
+        # 1. Collect all vector points across records to find dynamic bounds
+        raw_pts = []
+        off = 0
+        while off < len(data) - 8:
+            itype, nsize = struct.unpack('<II', data[off:off+8])
+            if nsize <= 0 or off + nsize > len(data): break
+            rec = data[off:off+nsize]
 
-        scale = 3
-        img = Image.new('RGBA', (w * scale, h * scale), (255, 255, 255, 255))
+            if itype in (27, 54) and len(rec) >= 16: # MOVETOEX, LINETO
+                px, py = struct.unpack('<ii', rec[8:16])
+                raw_pts.append((px, py))
+            elif itype in (74, 82) and len(rec) >= 28: # POLYGON16, POLYDRAW16
+                cpt = struct.unpack('<I', rec[8:12])[0]
+                pts_start = 28
+                for i in range(min(cpt, 500)):
+                    if pts_start + (i+1)*4 <= len(rec):
+                        px, py = struct.unpack('<hh', rec[pts_start + i*4 : pts_start + (i+1)*4])
+                        raw_pts.append((px, py))
+            elif itype == 75 and len(rec) >= 32: # POLYPOLYGON16
+                cPolys = struct.unpack('<I', rec[24:28])[0]
+                counts_offset = 32
+                pts_offset = 32 + cPolys * 4
+                curr_p = 0
+                for c_idx in range(min(cPolys, 50)):
+                    if counts_offset + (c_idx+1)*4 <= len(rec):
+                        cnt = struct.unpack('<I', rec[counts_offset + c_idx*4 : counts_offset + (c_idx+1)*4])[0]
+                        for p_idx in range(min(cnt, 200)):
+                            idx = curr_p + p_idx
+                            if pts_offset + (idx+1)*4 <= len(rec):
+                                px, py = struct.unpack('<hh', rec[pts_offset + idx*4 : pts_offset + (idx+1)*4])
+                                raw_pts.append((px, py))
+                        curr_p += cnt
+
+            off += nsize
+
+        if not raw_pts:
+            return None
+
+        min_x, max_x = min(p[0] for p in raw_pts), max(p[0] for p in raw_pts)
+        min_y, max_y = min(p[1] for p in raw_pts), max(p[1] for p in raw_pts)
+        dw, dh = max(max_x - min_x, 1), max(max_y - min_y, 1)
+
+        target_w = 400
+        target_h = max(int(target_w * (dh / dw)), 80)
+        img = Image.new('RGBA', (target_w, target_h), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
 
+        margin = 20
+        scale_x = (target_w - 2 * margin) / dw
+        scale_y = (target_h - 2 * margin) / dh
+
         off = 0
-        current_pen_color = (0, 0, 0, 255)
-        current_pen_width = max(scale, 2)
-        current_pt = (0, 0)
+        curr_pt = (margin, margin)
+        pen_color = (0, 0, 0, 255)
+        pen_width = 3
 
         while off < len(data) - 8:
             itype, nsize = struct.unpack('<II', data[off:off+8])
-            if nsize <= 0 or off + nsize > len(data):
-                break
+            if nsize <= 0 or off + nsize > len(data): break
             rec = data[off:off+nsize]
 
-            if itype == 38 and len(rec) >= 24: # EMR_CREATEPEN
-                color_int = struct.unpack('<I', rec[20:24])[0]
+            if itype == 38 and len(rec) >= 28: # CREATEPEN
+                color_int = struct.unpack('<I', rec[24:28])[0]
                 r_c, g_c, b_c = color_int & 0xff, (color_int >> 8) & 0xff, (color_int >> 16) & 0xff
-                current_pen_color = (r_c, g_c, b_c, 255)
+                if (r_c, g_c, b_c) != (255, 255, 255):
+                    pen_color = (r_c, g_c, b_c, 255)
 
-            elif itype == 27 and len(rec) >= 16: # EMR_MOVETOEX
-                mx, my = struct.unpack('<ii', rec[8:16])
-                current_pt = ((mx - left) * scale, (my - top) * scale)
+            elif itype == 27 and len(rec) >= 16: # MOVETOEX
+                px, py = struct.unpack('<ii', rec[8:16])
+                curr_pt = (margin + (px - min_x) * scale_x, margin + (py - min_y) * scale_y)
 
-            elif itype == 54 and len(rec) >= 16: # EMR_LINETO
-                lx, ly = struct.unpack('<ii', rec[8:16])
-                next_pt = ((lx - left) * scale, (ly - top) * scale)
-                draw.line([current_pt, next_pt], fill=current_pen_color, width=current_pen_width)
-                current_pt = next_pt
+            elif itype == 54 and len(rec) >= 16: # LINETO
+                px, py = struct.unpack('<ii', rec[8:16])
+                next_pt = (margin + (px - min_x) * scale_x, margin + (py - min_y) * scale_y)
+                draw.line([curr_pt, next_pt], fill=pen_color, width=pen_width)
+                curr_pt = next_pt
 
-            elif itype == 74 and len(rec) >= 28: # EMR_POLYGON16
-                cpt = struct.unpack('<I', rec[24:28])[0]
+            elif itype == 82 and len(rec) >= 28: # POLYDRAW16
+                cpt = struct.unpack('<I', rec[8:12])[0]
                 pts = []
+                pts_start = 28
                 for i in range(cpt):
-                    if 28 + (i+1)*4 <= len(rec):
-                        px, py = struct.unpack('<hh', rec[28 + i*4 : 28 + (i+1)*4])
-                        pts.append(((px - left) * scale, (py - top) * scale))
-                if len(pts) >= 2:
-                    draw.polygon(pts, outline=current_pen_color)
+                    if pts_start + (i+1)*4 <= len(rec):
+                        px, py = struct.unpack('<hh', rec[pts_start + i*4 : pts_start + (i+1)*4])
+                        pts.append((margin + (px - min_x) * scale_x, margin + (py - min_y) * scale_y))
+                ab_start = pts_start + cpt * 4
+                abTypes = rec[ab_start : ab_start + cpt]
+                for i in range(min(cpt, len(abTypes), len(pts))):
+                    typ = abTypes[i] & 0x06
+                    if typ == 0x06:
+                        curr_pt = pts[i]
+                    elif typ in (0x02, 0x04):
+                        draw.line([curr_pt, pts[i]], fill=pen_color, width=pen_width)
+                        curr_pt = pts[i]
 
-            elif itype == 75 and len(rec) >= 32: # EMR_POLYPOLYGON16
-                cPolys, cpt = struct.unpack('<II', rec[24:32])
+            elif itype == 74 and len(rec) >= 28: # POLYGON16
+                cpt = struct.unpack('<I', rec[8:12])[0]
+                pts = []
+                pts_start = 28
+                for i in range(cpt):
+                    if pts_start + (i+1)*4 <= len(rec):
+                        px, py = struct.unpack('<hh', rec[pts_start + i*4 : pts_start + (i+1)*4])
+                        pts.append((margin + (px - min_x) * scale_x, margin + (py - min_y) * scale_y))
+                if len(pts) >= 2:
+                    draw.polygon(pts, outline=pen_color)
+
+            elif itype == 75 and len(rec) >= 32: # POLYPOLYGON16
+                cPolys = struct.unpack('<I', rec[24:28])[0]
                 counts_offset = 32
                 pts_offset = 32 + cPolys * 4
                 curr_p = 0
@@ -145,26 +207,10 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
                             idx = curr_p + p_idx
                             if pts_offset + (idx+1)*4 <= len(rec):
                                 px, py = struct.unpack('<hh', rec[pts_offset + idx*4 : pts_offset + (idx+1)*4])
-                                sub_pts.append(((px - left) * scale, (py - top) * scale))
+                                sub_pts.append((margin + (px - min_x) * scale_x, margin + (py - min_y) * scale_y))
                         if len(sub_pts) >= 2:
-                            draw.polygon(sub_pts, outline=current_pen_color)
+                            draw.polygon(sub_pts, outline=pen_color)
                         curr_p += cnt
-
-            elif itype == 82 and len(rec) >= 28: # EMR_POLYDRAW16
-                cpt = struct.unpack('<I', rec[24:28])[0]
-                pts = []
-                for i in range(cpt):
-                    if 28 + (i+1)*4 <= len(rec):
-                        px, py = struct.unpack('<hh', rec[28 + i*4 : 28 + (i+1)*4])
-                        pts.append(((px - left) * scale, (py - top) * scale))
-                abTypes = rec[28 + cpt*4 : 28 + cpt*4 + cpt]
-                for i in range(min(cpt, len(abTypes), len(pts))):
-                    typ = abTypes[i] & 0x06
-                    if typ == 0x06: # PT_MOVETO
-                        current_pt = pts[i]
-                    elif typ == 0x02 or typ == 0x04: # PT_LINETO
-                        draw.line([current_pt, pts[i]], fill=current_pen_color, width=current_pen_width)
-                        current_pt = pts[i]
 
             off += nsize
 
@@ -175,98 +221,82 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
 
 def render_wmf_pure_python(data: bytes) -> Optional[Image.Image]:
     """
-    Pure Python WMF (Windows Metafile) vector drawing interpreter.
-    Parses WMF records (MoveTo, LineTo, Polygon, PolyPolygon, Pens, Brushes)
-    and draws them directly onto a PIL Image canvas without external dependencies.
+    Universal Pure Python WMF vector drawing interpreter.
+    Dynamically scans coordinate bounds across all draw commands and renders
+    crisp black vector drawings on a clean white canvas.
     """
     if not data or len(data) < 18:
         return None
     try:
-        off = 0
-        left, top, right, bottom = 0, 0, 400, 300
-        key = struct.unpack('<I', data[:4])[0]
-        if key == 0x9ac6cdd7:
-            left, top, right, bottom = struct.unpack('<hhhh', data[6:14])
-            off = 22
-        else:
-            off = 18
-
+        off = 22 if struct.unpack('<I', data[:4])[0] == 0x9ac6cdd7 else 18
+        raw_pts = []
         scan_off = off
-        win_w, win_h = max(right - left, 10), max(bottom - top, 10)
-        win_x, win_y = left, top
         while scan_off < len(data) - 6:
             rd_size, rd_fn = struct.unpack('<IH', data[scan_off:scan_off+6])
             if rd_size < 3 or scan_off + rd_size*2 > len(data): break
-            rec_bytes = data[scan_off:scan_off + rd_size*2]
-            if rd_fn == 0x020c and len(rec_bytes) >= 10: # SETWINDOWEXT
-                win_h, win_w = struct.unpack('<hh', rec_bytes[6:10])
-            elif rd_fn == 0x020b and len(rec_bytes) >= 10: # SETWINDOWORG
-                win_y, win_x = struct.unpack('<hh', rec_bytes[6:10])
+            rec = data[scan_off:scan_off + rd_size*2]
+            if rd_fn in (0x0214, 0x0213) and len(rec) >= 10:
+                py, px = struct.unpack('<hh', rec[6:10])
+                raw_pts.append((px, py))
+            elif rd_fn == 0x0324 and len(rec) >= 8:
+                cpt = struct.unpack('<h', rec[6:8])[0]
+                for i in range(cpt):
+                    if 8 + (i+1)*4 <= len(rec):
+                        py, px = struct.unpack('<hh', rec[8 + i*4 : 8 + (i+1)*4])
+                        raw_pts.append((px, py))
             scan_off += rd_size * 2
 
-        w = max(abs(win_w), 10)
-        h = max(abs(win_h), 10)
+        if not raw_pts:
+            return None
 
-        scale = 3
-        img = Image.new('RGBA', (w * scale, h * scale), (255, 255, 255, 255))
+        min_x, max_x = min(p[0] for p in raw_pts), max(p[0] for p in raw_pts)
+        min_y, max_y = min(p[1] for p in raw_pts), max(p[1] for p in raw_pts)
+        dw, dh = max(max_x - min_x, 1), max(max_y - min_y, 1)
+
+        target_w = 400
+        target_h = max(int(target_w * (dh / dw)), 80)
+        img = Image.new('RGBA', (target_w, target_h), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
 
-        current_pen_color = (0, 0, 0, 255)
-        current_pen_width = max(scale, 2)
-        current_pt = (0, 0)
+        margin = 20
+        scale_x = (target_w - 2 * margin) / dw
+        scale_y = (target_h - 2 * margin) / dh
+
+        off = 22 if struct.unpack('<I', data[:4])[0] == 0x9ac6cdd7 else 18
+        curr_pt = (margin, margin)
+        pen_color = (0, 0, 0, 255)
+        pen_width = 3
 
         while off < len(data) - 6:
             rd_size, rd_fn = struct.unpack('<IH', data[off:off+6])
             if rd_size < 3 or off + rd_size*2 > len(data): break
             rec = data[off:off + rd_size*2]
 
-            # 0x02fa: META_CREATEPENINDIRECT
             if rd_fn == 0x02fa and len(rec) >= 14:
                 color_int = struct.unpack('<I', rec[10:14])[0]
                 r_c, g_c, b_c = color_int & 0xff, (color_int >> 8) & 0xff, (color_int >> 16) & 0xff
-                current_pen_color = (r_c, g_c, b_c, 255)
+                if (r_c, g_c, b_c) != (255, 255, 255):
+                    pen_color = (r_c, g_c, b_c, 255)
 
-            # 0x0214: META_MOVETO
-            elif rd_fn == 0x0214 and len(rec) >= 10:
-                my, mx = struct.unpack('<hh', rec[6:10])
-                current_pt = ((mx - win_x) * scale, (my - win_y) * scale)
+            elif rd_fn == 0x0214 and len(rec) >= 10: # MOVETO
+                py, px = struct.unpack('<hh', rec[6:10])
+                curr_pt = (margin + (px - min_x) * scale_x, margin + (py - min_y) * scale_y)
 
-            # 0x0213: META_LINETO
-            elif rd_fn == 0x0213 and len(rec) >= 10:
-                ly, lx = struct.unpack('<hh', rec[6:10])
-                next_pt = ((lx - win_x) * scale, (ly - win_y) * scale)
-                draw.line([current_pt, next_pt], fill=current_pen_color, width=current_pen_width)
-                current_pt = next_pt
+            elif rd_fn == 0x0213 and len(rec) >= 10: # LINETO
+                py, px = struct.unpack('<hh', rec[6:10])
+                next_pt = (margin + (px - min_x) * scale_x, margin + (py - min_y) * scale_y)
+                draw.line([curr_pt, next_pt], fill=pen_color, width=pen_width)
+                curr_pt = next_pt
 
-            # 0x0324: META_POLYGON
-            elif rd_fn == 0x0324 and len(rec) >= 8:
+            elif rd_fn == 0x0324 and len(rec) >= 8: # POLYGON
                 cpt = struct.unpack('<h', rec[6:8])[0]
                 pts = []
                 for i in range(cpt):
                     if 8 + (i+1)*4 <= len(rec):
                         py, px = struct.unpack('<hh', rec[8 + i*4 : 8 + (i+1)*4])
-                        pts.append(((px - win_x) * scale, (py - win_y) * scale))
+                        pts.append((margin + (px - min_x) * scale_x, margin + (py - min_y) * scale_y))
                 if len(pts) >= 2:
-                    draw.polygon(pts, outline=current_pen_color)
-
-            # 0x0521: META_POLYPOLYGON
-            elif rd_fn == 0x0521 and len(rec) >= 8:
-                cPolys = struct.unpack('<h', rec[6:8])[0]
-                counts_offset = 8
-                pts_offset = 8 + cPolys * 2
-                curr_p = 0
-                for c_idx in range(cPolys):
-                    if counts_offset + (c_idx+1)*2 <= len(rec):
-                        cnt = struct.unpack('<h', rec[counts_offset + c_idx*2 : counts_offset + (c_idx+1)*2])[0]
-                        sub_pts = []
-                        for p_idx in range(cnt):
-                            idx = curr_p + p_idx
-                            if pts_offset + (idx+1)*4 <= len(rec):
-                                py, px = struct.unpack('<hh', rec[pts_offset + idx*4 : pts_offset + (idx+1)*4])
-                                sub_pts.append(((px - win_x) * scale, (py - win_y) * scale))
-                        if len(sub_pts) >= 2:
-                            draw.polygon(sub_pts, outline=current_pen_color)
-                        curr_p += cnt
+                    draw.polygon(pts, outline=pen_color)
 
             off += rd_size * 2
 
@@ -438,7 +468,7 @@ def convert_vector_metafile_to_png_bytes(data: bytes) -> Optional[bytes]:
     except Exception:
         pass
 
-    # Stage 3: Pure Python EMF / WMF Vector Renderer
+    # Stage 3: Universal Pure Python EMF / WMF Vector Renderer
     try:
         emf_img = render_emf_pure_python(data)
         if emf_img:
