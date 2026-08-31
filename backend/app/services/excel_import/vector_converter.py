@@ -6,7 +6,7 @@ import struct
 import subprocess
 import xml.etree.ElementTree as ET
 from typing import Optional
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 def extract_embedded_raster_image(data: bytes) -> Optional[Image.Image]:
     """
@@ -79,8 +79,8 @@ def extract_embedded_raster_image(data: bytes) -> Optional[Image.Image]:
 def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
     """
     Universal Pure Python EMF vector drawing interpreter.
-    Filters out frame-boundary lines, computes dynamic bounding box of chemical bonds,
-    and renders crisp black vector drawings on a clean white canvas.
+    Filters out frame-boundary lines, computes dynamic bounding box of chemical bonds and text labels,
+    and renders crisp black vector drawings and text characters on a clean white canvas.
     """
     if not data or len(data) < 80:
         return None
@@ -89,11 +89,12 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
         if itype != 1 or data[40:44] != b' EMF':
             return None
 
-        # 1. Parse all vector lines and polygon shapes
+        # 1. Parse all vector lines, polygon shapes, and text items
         off = 0
         curr_pt = None
         raw_lines = []
         polygons = []
+        text_items = []
 
         while off < len(data) - 8:
             itype, nsize = struct.unpack('<II', data[off:off+8])
@@ -161,6 +162,14 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
                             polygons.append(sub_pts)
                         curr_p += cnt
 
+            elif itype in (83, 84) and len(rec) >= 52: # EMR_EXTTEXTOUTA, EMR_EXTTEXTOUTW
+                ref_x, ref_y, n_chars, off_str = struct.unpack('<iiII', rec[36:52])
+                if off_str + (n_chars * 2 if itype == 84 else n_chars) <= len(rec):
+                    raw_bytes = rec[off_str : off_str + (n_chars * 2 if itype == 84 else n_chars)]
+                    txt = raw_bytes.decode('utf-16le' if itype == 84 else 'latin-1', errors='ignore')
+                    if txt.strip():
+                        text_items.append((ref_x, ref_y, txt.strip()))
+
             off += nsize
 
         # 2. Filter out abnormal long frame-connecting lines
@@ -175,6 +184,8 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
             valid_pts.extend([p1, p2])
         for poly in polygons:
             valid_pts.extend(poly)
+        for rx, ry, _ in text_items:
+            valid_pts.append((rx, ry))
 
         if not valid_pts:
             return None
@@ -200,6 +211,10 @@ def render_emf_pure_python(data: bytes) -> Optional[Image.Image]:
         for poly in polygons:
             pts = [(margin + (p[0] - min_x) * scale_x, margin + (p[1] - min_y) * scale_y) for p in poly]
             draw.polygon(pts, outline=(0, 0, 0, 255))
+
+        for rx, ry, txt in text_items:
+            tp = (margin + (rx - min_x) * scale_x, margin + (ry - min_y) * scale_y)
+            draw.text(tp, txt, fill=(0, 0, 0, 255))
 
         return img
     except Exception:
@@ -270,7 +285,7 @@ def render_wmf_pure_python(data: bytes) -> Optional[Image.Image]:
         dw, dh = max(max_x - min_x, 1), max(max_y - min_y, 1)
 
         target_w = 300
-        target_h = max(int(target_w * (dh / dw)), 60)
+        target_h = max(int(target_w * (dh / dw)), 30)
         img = Image.new('RGBA', (target_w, target_h), (255, 255, 255, 255))
         draw = ImageDraw.Draw(img)
 
@@ -298,20 +313,23 @@ def render_emf_wmf_libreoffice(data: bytes) -> Optional[Image.Image]:
         return None
     try:
         import tempfile
-        with tempfile.NamedTemporaryFile(suffix=".emf", delete=False) as tmp_in:
+        # Determine extension based on magic header
+        ext = ".emf" if (len(data) >= 44 and data[40:44] == b" EMF") else ".wmf"
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp_in:
             tmp_in.write(data)
             tmp_in_path = tmp_in.name
 
         out_dir = os.path.dirname(tmp_in_path)
         cmd = ["soffice", "--headless", "--convert-to", "png", "--outdir", out_dir, tmp_in_path]
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12)
 
         png_path = os.path.splitext(tmp_in_path)[0] + ".png"
         if os.path.exists(png_path):
             img = Image.open(png_path)
             img.load()
             os.remove(png_path)
-            os.remove(tmp_in_path)
+            if os.path.exists(tmp_in_path):
+                os.remove(tmp_in_path)
             return img
         if os.path.exists(tmp_in_path):
             os.remove(tmp_in_path)
@@ -425,20 +443,21 @@ def render_emf_wmf_gdi(data: bytes) -> Optional[Image.Image]:
 def convert_vector_metafile_to_png_bytes(data: bytes) -> Optional[bytes]:
     """
     Main multi-stage converter for .emf, .wmf, .vml files.
-    Returns PNG image bytes or None if conversion fails.
+    Prefers LibreOffice for 100% loss-free vector & text rendering, with Pure Python and GDI fallbacks.
     """
     if not data:
         return None
 
-    # Stage 1: Try PIL Image.open
+    # Stage 1: LibreOffice CLI Converter (100% loss-free vector & text rendering)
     try:
-        img = Image.open(io.BytesIO(data))
-        buf = io.BytesIO()
-        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
-            img.convert("RGBA").save(buf, "PNG")
-        else:
-            img.convert("RGB").save(buf, "PNG")
-        return buf.getvalue()
+        lo_img = render_emf_wmf_libreoffice(data)
+        if lo_img:
+            buf = io.BytesIO()
+            if lo_img.mode in ("RGBA", "LA"):
+                lo_img.save(buf, "PNG")
+            else:
+                lo_img.convert("RGB").save(buf, "PNG")
+            return buf.getvalue()
     except Exception:
         pass
 
@@ -455,7 +474,19 @@ def convert_vector_metafile_to_png_bytes(data: bytes) -> Optional[bytes]:
     except Exception:
         pass
 
-    # Stage 3: Universal Pure Python EMF / WMF Vector Renderer
+    # Stage 3: Try PIL Image.open directly
+    try:
+        img = Image.open(io.BytesIO(data))
+        buf = io.BytesIO()
+        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+            img.convert("RGBA").save(buf, "PNG")
+        else:
+            img.convert("RGB").save(buf, "PNG")
+        return buf.getvalue()
+    except Exception:
+        pass
+
+    # Stage 4: Universal Pure Python EMF / WMF Vector & Text Renderer
     try:
         emf_img = render_emf_pure_python(data)
         if emf_img:
@@ -474,22 +505,12 @@ def convert_vector_metafile_to_png_bytes(data: bytes) -> Optional[bytes]:
     except Exception:
         pass
 
-    # Stage 4: Windows GDI32 API Renderer (Windows environment)
+    # Stage 5: Windows GDI32 API Renderer (Windows environment)
     try:
         gdi_img = render_emf_wmf_gdi(data)
         if gdi_img:
             buf = io.BytesIO()
             gdi_img.save(buf, "PNG")
-            return buf.getvalue()
-    except Exception:
-        pass
-
-    # Stage 5: LibreOffice CLI Converter
-    try:
-        lo_img = render_emf_wmf_libreoffice(data)
-        if lo_img:
-            buf = io.BytesIO()
-            lo_img.save(buf, "PNG")
             return buf.getvalue()
     except Exception:
         pass

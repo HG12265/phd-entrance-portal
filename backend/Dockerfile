@@ -2,9 +2,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies if needed (e.g. gcc for pymysql/bcrypt)
+# Install system dependencies including LibreOffice & fonts for vector rendering (EMF/WMF/VML)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    libreoffice-draw-nogui \
+    fonts-freefont-ttf \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install dependencies
