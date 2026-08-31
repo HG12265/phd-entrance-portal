@@ -3,8 +3,9 @@ xlsx_inspector.py
 
 Deep ZIP-level inspection of .xlsx files to extract:
 - All embedded media assets (PNG, JPG, EMF, WMF, etc.) from xl/media/
-- Drawing anchor positions (row/col) from xl/drawings/drawing*.xml
-- Drawing → media relationship mapping from xl/drawings/_rels/drawing*.xml.rels
+- Standard DrawingML anchor positions (row/col) from xl/drawings/drawing*.xml
+- VML Drawing anchor positions (row/col) from xl/drawings/vmlDrawing*.vml
+- Drawing → media relationship mapping from xl/drawings/_rels/drawing*.xml.rels & vmlDrawing*.vml.rels
 - Worksheet → drawing relationship from xl/worksheets/_rels/sheet*.xml.rels
 - OLE embedded objects from xl/embeddings/
 - OMML (OfficeMath) content from worksheet cell XML
@@ -67,11 +68,8 @@ class AssetInfo:
 @dataclass
 class InspectionResult:
     """Full result of inspecting an xlsx file."""
-    # row_assets[row_num][field_name] = list of AssetInfo
     row_assets: Dict[int, Dict[str, List[AssetInfo]]] = field(default_factory=dict)
-    # omml_cells[row_num][field_name] = list of OMML XML strings
     omml_cells: Dict[int, Dict[str, List[str]]] = field(default_factory=dict)
-    # Stats
     total_images: int = 0
     total_emf: int = 0
     total_wmf: int = 0
@@ -81,7 +79,6 @@ class InspectionResult:
 
 
 def _parse_xml_safe(xml_bytes: bytes) -> Optional[ET.Element]:
-    """Parse XML bytes safely, returning None on any parse error."""
     try:
         return ET.fromstring(xml_bytes)
     except ET.ParseError as e:
@@ -90,7 +87,6 @@ def _parse_xml_safe(xml_bytes: bytes) -> Optional[ET.Element]:
 
 
 def _extract_col_from_anchor(anchor_elem: ET.Element) -> int:
-    """Extract column index from a spreadsheetDrawing anchor element."""
     from_elem = anchor_elem.find("xdr:from", NS)
     if from_elem is not None:
         col_elem = from_elem.find("xdr:col", NS)
@@ -99,24 +95,22 @@ def _extract_col_from_anchor(anchor_elem: ET.Element) -> int:
                 return int(col_elem.text.strip())
             except ValueError:
                 pass
-    return 1  # default to question_text column
+    return 1
 
 
 def _extract_row_from_anchor(anchor_elem: ET.Element) -> int:
-    """Extract row index (0-based) from a spreadsheetDrawing anchor element."""
     from_elem = anchor_elem.find("xdr:from", NS)
     if from_elem is not None:
         row_elem = from_elem.find("xdr:row", NS)
         if row_elem is not None and row_elem.text:
             try:
-                return int(row_elem.text.strip())  # 0-based in xlsx
+                return int(row_elem.text.strip())
             except ValueError:
                 pass
-    return 1  # default
+    return 1
 
 
 def _field_from_col(col_idx: int, col_field_map: Optional[Dict[int, str]] = None) -> str:
-    """Map column index to question field name."""
     if col_field_map and col_idx in col_field_map:
         candidate = col_field_map[col_idx]
         if candidate in COL_IDX_TO_FIELD.values():
@@ -145,17 +139,6 @@ def inspect_xlsx(
     col_field_map: Optional[Dict[int, str]] = None,
     max_asset_size_mb: float = 20.0
 ) -> InspectionResult:
-    """
-    Deep inspection of an xlsx file to extract all embedded assets.
-
-    Args:
-        xlsx_path: Path to the .xlsx file
-        col_field_map: Optional mapping of column index → field name
-        max_asset_size_mb: Maximum size per asset in MB (security limit)
-
-    Returns:
-        InspectionResult with all extracted assets mapped by row and field
-    """
     result = InspectionResult()
     max_bytes = int(max_asset_size_mb * 1024 * 1024)
 
@@ -172,7 +155,7 @@ def inspect_xlsx(
     with zf:
         all_names = set(zf.namelist())
 
-        # Step 1: Build media index: rId -> (filename, ext, bytes)
+        # Step 1: Index all media files from xl/media/
         media_bytes: Dict[str, Tuple[str, str, bytes]] = {}
         for name in all_names:
             if name.startswith("xl/media/"):
@@ -181,15 +164,12 @@ def inspect_xlsx(
                 if ext in SUPPORTED_IMAGE_EXTS:
                     try:
                         raw = zf.read(name)
-                        if len(raw) > max_bytes:
-                            result.warnings.append(f"Asset {fname} exceeds size limit ({len(raw)//1024}KB), skipping.")
-                            continue
-                        # Key by filename for lookup
-                        media_bytes[fname] = (fname, ext, raw)
+                        if len(raw) <= max_bytes:
+                            media_bytes[fname] = (fname, ext, raw)
                     except Exception as e:
                         result.warnings.append(f"Could not read media/{fname}: {e}")
 
-        # Also index OLE embeddings
+        # Index OLE embeddings
         ole_bytes: Dict[str, bytes] = {}
         for name in all_names:
             if name.startswith("xl/embeddings/"):
@@ -201,11 +181,10 @@ def inspect_xlsx(
                 except Exception as e:
                     result.warnings.append(f"Could not read embedding/{fname}: {e}")
 
-        # Step 2: Parse drawing relationship files to map rId → media filename
-        # xl/drawings/_rels/drawing*.xml.rels
-        drawing_rel_map: Dict[str, Dict[str, str]] = {}  # drawing_name -> {rId: target}
+        # Step 2: Parse drawing relationship files (DrawingML + VML)
+        drawing_rel_map: Dict[str, Dict[str, str]] = {}
         for name in all_names:
-            if re.match(r"xl/drawings/_rels/drawing\d+\.xml\.rels", name):
+            if re.match(r"xl/drawings/_rels/(?:drawing|vmlDrawing)\d+\.(?:xml|vml)\.rels$", name):
                 drawing_name = name.replace("_rels/", "").replace(".rels", "")
                 try:
                     rels_xml = zf.read(name)
@@ -216,18 +195,16 @@ def inspect_xlsx(
                     for rel_elem in rels_root:
                         rid = rel_elem.get("Id", "")
                         target = rel_elem.get("Target", "")
-                        # Target is relative: ../media/image1.emf or ../embeddings/...
                         if rid and target:
                             rid_map[rid] = os.path.basename(target)
                     drawing_rel_map[drawing_name] = rid_map
                 except Exception as e:
                     result.warnings.append(f"Could not parse drawing rels {name}: {e}")
 
-        # Step 3: Parse worksheet relationship files to map drawing → sheet
-        # xl/worksheets/_rels/sheet*.xml.rels
-        sheet_to_drawings: Dict[str, List[str]] = {}  # sheet_xml_name -> [drawing_xml_names]
+        # Step 3: Parse worksheet relationship files (drawing + vmlDrawing)
+        sheet_to_drawings: Dict[str, List[str]] = {}
         for name in all_names:
-            if re.match(r"xl/worksheets/_rels/sheet\d+\.xml\.rels", name):
+            if re.match(r"xl/worksheets/_rels/sheet\d+\.xml\.rels$", name):
                 sheet_name = name.replace("_rels/", "").replace(".rels", "")
                 try:
                     rels_xml = zf.read(name)
@@ -238,8 +215,7 @@ def inspect_xlsx(
                     for rel_elem in rels_root:
                         rel_type = rel_elem.get("Type", "")
                         target = rel_elem.get("Target", "")
-                        if "drawing" in rel_type.lower() and target:
-                            # Normalize path
+                        if ("drawing" in rel_type.lower() or "vmldrawing" in rel_type.lower()) and target:
                             if target.startswith("../"):
                                 target = "xl/" + target[3:]
                             elif not target.startswith("xl/"):
@@ -249,10 +225,10 @@ def inspect_xlsx(
                 except Exception as e:
                     result.warnings.append(f"Could not parse sheet rels {name}: {e}")
 
-        # Step 4: Parse drawing XML files to get anchor→rId mappings
-        # xl/drawings/drawing*.xml
-        # Build: drawing_xml_name -> [{row, col, rId, type}]
+        # Step 4: Parse drawing XML files (DrawingML + VML)
         drawing_anchors: Dict[str, List[Dict]] = {}
+
+        # 4a: Standard DrawingML XML files (xl/drawings/drawing*.xml)
         for name in all_names:
             if re.match(r"xl/drawings/drawing\d+\.xml$", name):
                 try:
@@ -261,16 +237,12 @@ def inspect_xlsx(
                     if drawing_root is None:
                         continue
                     anchors = []
-                    # Look for twoCellAnchor and oneCellAnchor
                     for anchor_tag in ["xdr:twoCellAnchor", "xdr:oneCellAnchor", "xdr:absoluteAnchor"]:
-                        for anchor in drawing_root.findall(anchor_tag, NS):
+                        for anchor in drawing_root.findall(f".//{anchor_tag}", NS):
                             row_0based = _extract_row_from_anchor(anchor)
                             col = _extract_col_from_anchor(anchor)
-                            # Look for picture (rId reference)
                             pic = anchor.find(".//xdr:pic", NS)
                             graphicFrame = anchor.find(".//xdr:graphicFrame", NS)
-                            sp = anchor.find(".//xdr:sp", NS)
-
                             rid = None
                             item_type = "image"
 
@@ -280,9 +252,7 @@ def inspect_xlsx(
                                     blip = blipFill.find("a:blip", NS)
                                     if blip is not None:
                                         rid = blip.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")
-                                item_type = "image"
                             elif graphicFrame is not None:
-                                # Could be OLE or chart
                                 graphic = graphicFrame.find(".//a:graphic", NS)
                                 if graphic is not None:
                                     graphicData = graphic.find("a:graphicData", NS)
@@ -290,7 +260,6 @@ def inspect_xlsx(
                                         uri = graphicData.get("uri", "")
                                         if "oleObject" in uri or "chart" in uri:
                                             item_type = "ole"
-                                            # Try to get rId from oleObject
                                             for child in graphicData:
                                                 r = child.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")
                                                 if r:
@@ -304,19 +273,41 @@ def inspect_xlsx(
                                     "rId": rid,
                                     "type": item_type
                                 })
-
                     drawing_anchors[name] = anchors
                 except Exception as e:
                     result.warnings.append(f"Could not parse drawing XML {name}: {e}")
 
-        # Step 5: Build the final mapping
-        # For each sheet, find its drawings, then for each anchor resolve the asset
-        # We assume the first/active sheet is the relevant one
+        # 4b: VML Drawing XML files (xl/drawings/vmlDrawing*.vml)
+        for name in all_names:
+            if re.match(r"xl/drawings/vmlDrawing\d+\.vml$", name):
+                try:
+                    vml_content = zf.read(name).decode('utf-8', errors='replace')
+                    anchors = []
+                    # Extract shapes containing imagedata or OLE references
+                    shapes = re.findall(r'<v:shape[^>]*>(.*?)</v:shape>', vml_content, re.DOTALL)
+                    for shape in shapes:
+                        relid_match = re.search(r'(?:o:relid|r:id)=["\']([^"\']+)["\']', shape)
+                        anchor_match = re.search(r'<x:Anchor>\s*([^<]+)\s*</x:Anchor>', shape)
+                        if relid_match and anchor_match:
+                            rid = relid_match.group(1)
+                            anchor_text = anchor_match.group(1).strip()
+                            nums = [int(n) for n in re.split(r'[,\s]+', anchor_text) if n.strip().isdigit()]
+                            if len(nums) >= 4:
+                                from_col = nums[0]
+                                from_row = nums[2]
+                                anchors.append({
+                                    "row_0based": from_row,
+                                    "col": from_col,
+                                    "rId": rid,
+                                    "type": "image"
+                                })
+                    drawing_anchors[name] = anchors
+                except Exception as e:
+                    result.warnings.append(f"Could not parse VML drawing {name}: {e}")
 
-        # Find the active sheet (first sheet that has drawings linked)
-        # Simplified: use all sheets, they all contribute to row_assets
+        # Step 5: Build final row mapping
         asset_counter = 0
-        processed_anchors = []
+        processed_anchors = set()
 
         for sheet_xml, drawing_list in sheet_to_drawings.items():
             for drawing_xml_name in drawing_list:
@@ -328,23 +319,19 @@ def inspect_xlsx(
                     row_0based = anchor["row_0based"]
                     col = anchor["col"]
                     item_type = anchor["type"]
-
-                    # Convert 0-based anchor row to 1-indexed Excel data row
-                    # Row 0 in anchor = header row (row 1 in Excel = row index 0 in pandas)
-                    # Data starts at anchor row 1 = Excel row 2 = pandas index 0
-                    # So: data_row = row_0based (already 0-based, header is row 0)
-                    # pandas index = row_0based - 1 (since row 0 = header)
-                    # Excel row number = row_0based + 1
-                    excel_row = row_0based + 1  # 1-indexed Excel row number
+                    excel_row = row_0based + 1  # 1-indexed Excel row
 
                     field_name = _field_from_col(col, col_field_map)
-
                     media_fname = rid_to_media.get(rid, "")
+
                     if not media_fname:
-                        result.warnings.append(
-                            f"Drawing anchor at row={excel_row}, col={col} has rId={rid} but no media target found."
-                        )
                         continue
+
+                    # Avoid duplicate processing of exact same anchor/media combination
+                    dedup_key = (excel_row, field_name, media_fname)
+                    if dedup_key in processed_anchors:
+                        continue
+                    processed_anchors.add(dedup_key)
 
                     asset_counter += 1
                     asset_id = f"asset_{asset_counter}"
@@ -386,9 +373,6 @@ def inspect_xlsx(
                         else:
                             result.total_png_jpg += 1
                     else:
-                        result.warnings.append(
-                            f"Media '{media_fname}' referenced by anchor at row={excel_row} not found in xl/media/"
-                        )
                         continue
 
                     result.total_images += 1
@@ -397,14 +381,11 @@ def inspect_xlsx(
                     if field_name not in result.row_assets[excel_row]:
                         result.row_assets[excel_row][field_name] = []
                     result.row_assets[excel_row][field_name].append(info)
-                    processed_anchors.append((excel_row, field_name))
 
-        # Step 6: Fallback — if no drawing rels were found, try direct worksheet XML scan
-        # This catches some xlsx files where drawings are embedded differently
-        if not processed_anchors:
+        # Step 6: Fallback if no anchors found
+        if not processed_anchors and media_bytes:
             _fallback_scan_worksheet_xml(zf, all_names, media_bytes, ole_bytes, result, col_field_map, max_bytes)
 
-        # Step 7: Log inspection summary
         logger.info(
             f"xlsx_inspector: found {result.total_images} assets "
             f"(PNG/JPG: {result.total_png_jpg}, EMF: {result.total_emf}, "
@@ -423,33 +404,13 @@ def _fallback_scan_worksheet_xml(
     col_field_map: Optional[Dict[int, str]],
     max_bytes: int
 ):
-    """
-    Fallback: scan worksheet XML directly for v:imagedata or a:blip references.
-    Used when the standard drawing relationship chain doesn't resolve.
-    """
-    for name in all_names:
-        if re.match(r"xl/worksheets/sheet\d+\.xml$", name):
-            try:
-                ws_xml = zf.read(name)
-                # Simple regex scan for embed rIds in worksheet
-                # This is a last-resort approach
-                rids_in_ws = re.findall(r'r:embed="(rId\d+)"', ws_xml.decode("utf-8", errors="replace"))
-                if rids_in_ws:
-                    logger.debug(f"Fallback: found {len(rids_in_ws)} rId refs in {name}")
-            except Exception:
-                pass
-
-    # If media files exist but no anchors found, assign them to rows sequentially
-    # This is a heuristic last resort
     if media_bytes and not result.row_assets:
         result.warnings.append(
-            "Could not resolve drawing anchors — images may be assigned to incorrect rows. "
-            "Using sequential fallback assignment."
+            "Could not resolve drawing anchors — images assigned using sequential fallback."
         )
         asset_counter = 0
         for fname, (orig_fname, ext, raw) in media_bytes.items():
             asset_counter += 1
-            # Default: assign to row 2 (first data row), question_text field
             excel_row = asset_counter + 1
             field_name = "question_text"
             is_vec = ext in VECTOR_EXTS
