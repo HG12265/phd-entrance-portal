@@ -15,7 +15,7 @@ function MathText({ text, className = "" }) {
         className={className}
         style={{ display: 'inline-block', wordBreak: 'break-word', whiteSpace: 'normal' }}
       >
-        {text}
+        <span dangerouslySetInnerHTML={{ __html: text }} />
       </MathJax>
     );
   }
@@ -49,7 +49,7 @@ function MathText({ text, className = "" }) {
               dynamic 
               style={{ display: 'inline-block', wordBreak: 'break-word', whiteSpace: 'normal' }}
             >
-              {seg.content}
+              <span dangerouslySetInnerHTML={{ __html: seg.content }} />
             </MathJax>
           );
         } else {
@@ -58,7 +58,7 @@ function MathText({ text, className = "" }) {
             <div key={idx} style={{ margin: '0.5rem 0', textAlign: 'left' }}>
               <img 
                 src={fullSrc} 
-                alt="Cell Image" 
+                alt="Question Diagram" 
                 style={{ 
                   maxWidth: '100%', 
                   maxHeight: '260px', 

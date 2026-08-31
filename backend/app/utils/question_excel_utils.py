@@ -114,6 +114,23 @@ def normalize_latex_math_in_text(text: str) -> str:
         
     return val_str
 
+SUB_SUPER_MAP = {
+    '₀': '<sub>0</sub>', '₁': '<sub>1</sub>', '₂': '<sub>2</sub>', '₃': '<sub>3</sub>', '₄': '<sub>4</sub>',
+    '₅': '<sub>5</sub>', '₆': '<sub>6</sub>', '₇': '<sub>7</sub>', '₈': '<sub>8</sub>', '₉': '<sub>9</sub>',
+    '⁰': '<sup>0</sup>', '¹': '<sup>1</sup>', '²': '<sup>2</sup>', '³': '<sup>3</sup>', '⁴': '<sup>4</sup>',
+    '⁵': '<sup>5</sup>', '⁶': '<sup>6</sup>', '⁷': '<sup>7</sup>', '⁸': '<sup>8</sup>', '⁹': '<sup>9</sup>',
+    '⁺': '<sup>+</sup>', '⁻': '<sup>-</sup>'
+}
+
+def normalize_chemical_and_math_text(text: str) -> str:
+    if not text:
+        return ""
+    val_str = str(text).strip()
+    for char, html_sub in SUB_SUPER_MAP.items():
+        if char in val_str:
+            val_str = val_str.replace(char, html_sub)
+    return normalize_latex_math_in_text(val_str)
+
 def parse_marks(value: Any) -> int:
     if pd.isna(value):
         return 1
@@ -126,7 +143,7 @@ def clean_question_text(value: Any) -> str:
     if pd.isna(value):
         return ""
     val_str = str(value).strip()
-    return normalize_latex_math_in_text(val_str)
+    return normalize_chemical_and_math_text(val_str)
 
 def validate_question_row(row: Dict[str, Any], row_no: int, row_images: Optional[Dict[str, Any]] = None) -> Tuple[bool, Optional[str], Optional[int]]:
     # 1. Validate question number

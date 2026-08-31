@@ -350,12 +350,18 @@ def upload_questions(
     from app.utils.image_converter import convert_image_bytes_to_png
     
     try:
-        from app.services.excel_import.xlsx_inspector import extract_all_xlsx_media_images
-        extracted_media = extract_all_xlsx_media_images(stored_path, image_dir, batch_id)
-        # If openpyxl misses any media, map them to question rows if needed
+        from app.services.excel_import.xlsx_inspector import extract_excel_drawings_with_anchors
+        xml_drawings = extract_excel_drawings_with_anchors(stored_path, image_dir, batch_id, col_field_map)
+        for r_num, f_map in xml_drawings.items():
+            if r_num not in row_field_images:
+                row_field_images[r_num] = {}
+            for f_name, url_list in f_map.items():
+                if f_name not in row_field_images[r_num]:
+                    row_field_images[r_num][f_name] = []
+                row_field_images[r_num][f_name].extend(url_list)
     except Exception as inspect_err:
         from app.logging_config import log_error
-        log_error(f"XLSX Media inspection warning: {inspect_err}")
+        log_error(f"OpenXML Drawing extraction warning: {inspect_err}")
 
     try:
         from openpyxl import load_workbook
@@ -404,7 +410,8 @@ def upload_questions(
                                 row_field_images[row_num] = {}
                             if field_name not in row_field_images[row_num]:
                                 row_field_images[row_num][field_name] = []
-                            row_field_images[row_num][field_name].append(web_url)
+                            if web_url not in row_field_images[row_num][field_name]:
+                                row_field_images[row_num][field_name].append(web_url)
     except Exception as img_err:
         from app.logging_config import log_error
         log_error(f"Failed to parse images from Excel: {str(img_err)}")
