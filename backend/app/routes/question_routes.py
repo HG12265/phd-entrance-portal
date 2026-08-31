@@ -259,45 +259,31 @@ def upload_questions(
     db: Session = Depends(get_db),
     current_admin: AdminUser = Depends(get_current_admin)
 ):
-    """
-    Upload a question bank Excel file for a department.
-
-    Supports:
-    - Plain text questions (backward compatible)
-    - LaTeX/Unicode math equations (MathJax rendering)
-    - PNG / JPEG images embedded in Excel
-    - EMF / WMF vector images (converted to PNG via ImageMagick)
-    - OLE embedded objects (MathType / Equation Editor preview extraction)
-    - OMML Office Math → LaTeX conversion
-    - Mixed text + image + equation questions
-    - Images inside answer options (A/B/C/D)
-    """
     if current_admin.role != "super_admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: Only Super Admin can upload question banks.")
-
-    from app.config import MAX_UPLOAD_SIZE_MB
-    from app.logging_config import log_error, log_info
-    from app.services.excel_import.import_pipeline import run_advanced_import
-
     # 1. Validate department
     dept = db.query(Department).filter(
         and_(Department.id == department_id, Department.is_active == True)
     ).first()
     if not dept:
         raise HTTPException(status_code=404, detail="Active department not found.")
-
-    # 2. Check existing questions
+        
+    # 2. Check if department already has active questions
     active_questions_count = db.query(Question).filter(
         and_(Question.department_id == department_id, Question.is_active == True)
     ).count()
-
+    
     if active_questions_count > 0 and not replace_existing:
         raise HTTPException(
             status_code=400,
             detail="This department already has active questions. Use replace_existing=true to replace the question bank."
         )
 
-    # 3. Validate file size and extension
+    # 3. Save uploaded file
+    from app.config import MAX_UPLOAD_SIZE_MB
+    from app.logging_config import log_error
+
+    # Validate file size
     file.file.seek(0, os.SEEK_END)
     file_size = file.file.tell()
     file.file.seek(0)
@@ -312,66 +298,208 @@ def upload_questions(
     if file_ext not in [".xlsx", ".xls"]:
         log_error(f"Question Excel upload failed: Invalid file extension {file_ext}")
         raise HTTPException(status_code=400, detail="Only Excel files (.xlsx, .xls) are allowed.")
-
-    # 4. Save uploaded file
+        
     batch_id = str(uuid.uuid4())
     stored_filename = f"{batch_id}{file_ext}"
     stored_path = os.path.join(UPLOAD_DIR, stored_filename)
-
+    
     try:
         with open(stored_path, "wb") as f:
             f.write(file.file.read())
     except Exception as e:
         log_error(f"Question Excel upload failed: Failed to save uploaded file error={str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
-
-    # 5. Run the advanced import pipeline
-    image_dir = os.path.join("uploads", "question_images")
-    original_dir = os.path.join("uploads", "question_images", "original")
-    os.makedirs(image_dir, exist_ok=True)
-    os.makedirs(original_dir, exist_ok=True)
-
+        
+    # 4. Load Excel using pandas
     try:
-        import_result = run_advanced_import(
-            excel_path=stored_path,
-            batch_id=batch_id,
-            image_dir=image_dir,
-            original_asset_dir=original_dir,
-        )
+        df = pd.read_excel(stored_path, keep_default_na=False)
     except Exception as e:
-        log_error(f"Advanced import pipeline error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Import pipeline failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid Excel file or format: {str(e)}")
+        
+    total_rows = len(df)
 
-    total_rows = import_result.total_rows_inspected
-    errors = import_result.errors
-    valid_rows_to_insert = import_result.valid_rows
+    # Normalize headers
+    normalized_cols = [normalize_question_column_name(c) for c in df.columns]
+    
+    # Map headers to standard field names using COLUMN_MAPPING
+    mapped_cols = []
+    for col in normalized_cols:
+        mapped_cols.append(COLUMN_MAPPING.get(col, col))
+    df.columns = mapped_cols
+
+    # Validate required columns
+    ok, missing = validate_question_required_columns(df.columns)
+    if not ok:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing required columns in Excel: {', '.join(missing)}"
+        )
+
+    # Build column index to field name mapping
+    col_field_map = {}
+    for idx, col_name in enumerate(df.columns):
+        col_field_map[idx] = col_name
+
+    # Extract images from Excel if present
+    # Dictionary structure: row_field_images[row_num][field_name] = [list of image web URLs]
+    row_field_images = {}
+    image_dir = os.path.join("uploads", "question_images")
+    os.makedirs(image_dir, exist_ok=True)
+    
+    import io
+    from app.utils.image_converter import convert_image_bytes_to_png
+    
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(stored_path)
+        ws = wb.active
+        if hasattr(ws, '_images') and ws._images:
+            for img in ws._images:
+                row_num = None
+                col_num = 0
+                if hasattr(img, 'anchor'):
+                    anchor = img.anchor
+                    if isinstance(anchor, str):
+                        import re
+                        match = re.search(r'\d+', anchor)
+                        if match:
+                            row_num = int(match.group())
+                    elif hasattr(anchor, '_from'):
+                        row_num = anchor._from.row + 1
+                        col_num = getattr(anchor._from, 'col', 0)
+                
+                if row_num is not None:
+                    # Determine target field name based on column index
+                    field_name = col_field_map.get(col_num, "question_text")
+                    if field_name not in ["question_text", "option_a", "option_b", "option_c", "option_d"]:
+                        field_name = "question_text"
+                        
+                    img_bytes = None
+                    if hasattr(img, 'ref') and img.ref:
+                        img.ref.seek(0)
+                        img_bytes = img.ref.read()
+                    elif hasattr(img, '_data') and callable(img._data):
+                        img_bytes = img._data()
+                    elif hasattr(img, 'image') and img.image:
+                        buf = io.BytesIO()
+                        img.image.save(buf, format=getattr(img.image, 'format', None) or 'PNG')
+                        img_bytes = buf.getvalue()
+                    elif hasattr(img, 'path') and os.path.exists(img.path):
+                        with open(img.path, "rb") as f_img:
+                            img_bytes = f_img.read()
+
+                    if img_bytes:
+                        img_filename = f"q_img_{batch_id}_r{row_num}_{field_name}_{uuid.uuid4().hex[:8]}.png"
+                        img_path = os.path.join(image_dir, img_filename)
+                        if convert_image_bytes_to_png(img_bytes, img_path):
+                            web_url = f"/static/question_images/{img_filename}"
+                            if row_num not in row_field_images:
+                                row_field_images[row_num] = {}
+                            if field_name not in row_field_images[row_num]:
+                                row_field_images[row_num][field_name] = []
+                            row_field_images[row_num][field_name].append(web_url)
+    except Exception as img_err:
+        from app.logging_config import log_error
+        log_error(f"Failed to parse images from Excel: {str(img_err)}")
+        
+    # Check for duplicate question numbers inside Excel
+    has_dups, dup_q_nos = detect_duplicate_question_numbers(df)
+    
+    errors = []
+    valid_rows_to_insert = []
+    seen_excel_q_nos = set()
+    
+    # Process and validate row by row
+    for index, row in df.iterrows():
+        row_number = index + 2  # Excel is 1-indexed, headers are row 1
+        row_imgs = row_field_images.get(row_number, {})
+        
+        # Check duplicate inside excel check
+        q_no_raw = row.get("question_no")
+        q_no = None
+        try:
+            if not pd.isna(q_no_raw):
+                q_no = int(float(q_no_raw))
+        except:
+            pass
+            
+        row_dict = row.to_dict()
+        valid, err_msg, parsed_q_no = validate_question_row(row_dict, row_number, row_imgs)
+        
+        if not valid:
+            errors.append({
+                "row": row_number,
+                "question_no": parsed_q_no,
+                "error": err_msg
+            })
+            continue
+            
+        # Check for duplication inside the Excel sheet
+        if parsed_q_no in seen_excel_q_nos:
+            errors.append({
+                "row": row_number,
+                "question_no": parsed_q_no,
+                "error": f"Duplicate question number '{parsed_q_no}' in this Excel file."
+            })
+            continue
+            
+        seen_excel_q_nos.add(parsed_q_no)
+        
+        # Build combined text + image tags for each field
+        def build_field_content(field_name: str) -> str:
+            raw = clean_question_text(row.get(field_name))
+            urls = row_imgs.get(field_name, [])
+            if not urls:
+                return raw
+            img_tags = "".join([f'<img src="{u}" alt="{field_name} image" />' for u in urls])
+            if raw:
+                return f"{raw}\n{img_tags}"
+            return img_tags
+
+        # Determine primary image_path for database column
+        primary_image = None
+        if row_imgs.get("question_text"):
+            primary_image = row_imgs["question_text"][0]
+        else:
+            for f in ["option_a", "option_b", "option_c", "option_d"]:
+                if row_imgs.get(f):
+                    primary_image = row_imgs[f][0]
+                    break
+
+        # Assemble clean row properties
+        clean_row = {
+            "question_no": parsed_q_no,
+            "question_text": build_field_content("question_text"),
+            "option_a": build_field_content("option_a"),
+            "option_b": build_field_content("option_b"),
+            "option_c": build_field_content("option_c"),
+            "option_d": build_field_content("option_d"),
+            "correct_option": parse_correct_option(row.get("correct_option")),
+            "marks": parse_marks(row.get("marks")),
+            "image_path": primary_image
+        }
+        valid_rows_to_insert.append(clean_row)
+
+        
     success_count = len(valid_rows_to_insert)
     failed_count = len(errors)
 
-    # Log asset conversion warnings
-    for w in import_result.warnings:
-        log_error(f"[Question Import Warning] {w}")
-
-    # 6. 70-question constraint check
+    # 70-Question validation constraint check
     if success_count != 70:
+        # Create an import log representing this validation failure
         log = ImportLog(
             upload_type="question_bank",
             file_name=file.filename,
             total_records=total_rows,
             success_count=0,
             failed_count=total_rows,
-            error_details=json_error_details(
-                department_id, dept.department_name, errors, replace_existing,
-                f"Failed 70-question check. Got {success_count} valid rows. "
-                f"Assets: {import_result.asset_stats}. "
-                f"Conversion OK: {import_result.conversion_success}, "
-                f"Failed: {import_result.conversion_failed}"
-            ),
+            error_details=json_error_details(department_id, dept.department_name, errors, replace_existing, "Failed exactly 70 questions validation check. Got " + str(success_count) + " valid rows."),
             uploaded_by=current_admin.id
         )
         db.add(log)
         db.commit()
-
+        
+        # Return summary detailing validation errors
         return QuestionUploadSummary(
             message=f"Question upload validation failed: Excel has {success_count} valid questions instead of exactly 70.",
             department_id=department_id,
@@ -383,13 +511,15 @@ def upload_questions(
             errors=[{"row": e["row"], "question_no": e["question_no"], "error": e["error"]} for e in errors]
         )
 
-    # 7. Database transaction
+    # Perform Database Transaction insertion
     try:
+        # If replace_existing=True, soft deactivate old questions
         if replace_existing and active_questions_count > 0:
             db.query(Question).filter(
                 and_(Question.department_id == department_id, Question.is_active == True)
             ).update({"is_active": False}, synchronize_session=False)
 
+        # Bulk insert new questions
         for qr in valid_rows_to_insert:
             new_q = Question(
                 department_id=department_id,
@@ -406,33 +536,19 @@ def upload_questions(
                 image_path=qr.get("image_path")
             )
             db.add(new_q)
-
-        asset_summary_str = (
-            f"Assets: {import_result.asset_stats} | "
-            f"Converted OK: {import_result.conversion_success} | "
-            f"Failed: {import_result.conversion_failed} | "
-            f"OMML→LaTeX: {import_result.omml_converted}"
-        )
-
+            
+        # Log successful import in import_logs
         log = ImportLog(
             upload_type="question_bank",
             file_name=file.filename,
             total_records=total_rows,
             success_count=success_count,
             failed_count=failed_count,
-            error_details=json_error_details(
-                department_id, dept.department_name, errors, replace_existing,
-                f"Upload successful. {asset_summary_str}"
-            ),
+            error_details=json_error_details(department_id, dept.department_name, errors, replace_existing, "Upload successful"),
             uploaded_by=current_admin.id
         )
         db.add(log)
         db.commit()
-
-        log_info(
-            f"Question bank uploaded: dept={department_id}, batch={batch_id}, "
-            f"questions={success_count}, {asset_summary_str}"
-        )
 
     except Exception as e:
         db.rollback()
@@ -440,20 +556,9 @@ def upload_questions(
             status_code=500,
             detail=f"Database transaction failed while inserting questions: {str(e)}"
         )
-
-    # Build success message with asset stats
-    asset_parts = []
-    for fmt, cnt in import_result.asset_stats.items():
-        if fmt != "TOTAL" and cnt > 0:
-            asset_parts.append(f"{fmt}: {cnt}")
-
-    asset_msg = f" | Assets extracted — {', '.join(asset_parts)}" if asset_parts else ""
-    conv_warn = ""
-    if import_result.conversion_failed > 0:
-        conv_warn = f" | ⚠️ {import_result.conversion_failed} asset(s) failed conversion (check warnings)"
-
+        
     return QuestionUploadSummary(
-        message=f"Question bank uploaded successfully{asset_msg}{conv_warn}",
+        message="Question bank uploaded successfully",
         department_id=department_id,
         department_name=dept.department_name,
         total_rows=total_rows,
@@ -462,6 +567,8 @@ def upload_questions(
         replaced_existing=replace_existing,
         errors=[]
     )
+
+
 # Old soft-delete routes removed in favor of permanent delete controls below
 
 
