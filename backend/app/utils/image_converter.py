@@ -1,144 +1,96 @@
+"""
+image_converter.py
+
+Cross-platform image conversion utility.
+
+Delegates to the new vector_converter service for EMF/WMF support.
+Maintains the existing convert_image_bytes_to_png() API for backward compatibility.
+"""
+
 import os
 import io
-import ctypes
-from ctypes import wintypes
+import logging
 from typing import Optional
 from PIL import Image
 
-class RECT(ctypes.Structure):
-    _fields_ = [('left', ctypes.c_long), ('top', ctypes.c_long), ('right', ctypes.c_long), ('bottom', ctypes.c_long)]
+logger = logging.getLogger("phd_app")
 
-class ENHMETAHEADER(ctypes.Structure):
-    _fields_ = [
-        ('iType', wintypes.DWORD), ('nSize', wintypes.DWORD),
-        ('rclBounds', RECT), ('rclFrame', RECT),
-        ('dSignature', wintypes.DWORD), ('nVersion', wintypes.DWORD),
-        ('nBytes', wintypes.DWORD), ('nRecords', wintypes.DWORD),
-        ('nHandles', wintypes.WORD), ('sReserved', wintypes.WORD),
-        ('nDescription', wintypes.DWORD), ('offDescription', wintypes.DWORD),
-        ('nPalEntries', wintypes.DWORD), ('szlDevice', wintypes.SIZE),
-        ('szlMillimeters', wintypes.SIZE)
-    ]
-
-class BITMAPINFOHEADER(ctypes.Structure):
-    _fields_ = [
-        ('biSize', wintypes.DWORD), ('biWidth', ctypes.c_long), ('biHeight', ctypes.c_long),
-        ('biPlanes', wintypes.WORD), ('biBitCount', wintypes.WORD), ('biCompression', wintypes.DWORD),
-        ('biSizeImage', wintypes.DWORD), ('biXPelsPerMeter', ctypes.c_long),
-        ('biYPelsPerMeter', ctypes.c_long), ('biClrUsed', wintypes.DWORD), ('biClrImportant', wintypes.DWORD)
-    ]
-
-class BITMAPINFO(ctypes.Structure):
-    _fields_ = [('bmiHeader', BITMAPINFOHEADER), ('bmiColors', wintypes.DWORD * 3)]
-
-def render_emf_wmf_gdi(data: bytes) -> Optional[Image.Image]:
-    """Render Windows EMF/WMF vector metafile bytes into a PIL Image via Windows GDI32."""
-    if not data or os.name != 'nt':
-        return None
-    try:
-        gdi32 = ctypes.windll.gdi32
-        user32 = ctypes.windll.user32
-
-        hemf = gdi32.SetEnhMetaFileBits(len(data), (ctypes.c_ubyte * len(data))(*data))
-        if not hemf:
-            hemf = gdi32.SetWinMetaFileBits(len(data), (ctypes.c_ubyte * len(data))(*data), None, None)
-        if not hemf:
-            return None
-
-        try:
-            header = ENHMETAHEADER()
-            if not gdi32.GetEnhMetaFileHeader(hemf, ctypes.sizeof(header), ctypes.byref(header)):
-                return None
-
-            w = header.rclBounds.right - header.rclBounds.left
-            h = header.rclBounds.bottom - header.rclBounds.top
-            if w <= 0 or h <= 0:
-                w = header.rclFrame.right - header.rclFrame.left
-                h = header.rclFrame.bottom - header.rclFrame.top
-            if w <= 0: w = 400
-            if h <= 0: h = 300
-
-            target_w = max(w * 2, 400)
-            target_h = max(h * 2, 300)
-
-            hdc_screen = user32.GetDC(0)
-            hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
-
-            bmi = BITMAPINFO()
-            bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-            bmi.bmiHeader.biWidth = target_w
-            bmi.bmiHeader.biHeight = -target_h  # Top-down bitmap
-            bmi.bmiHeader.biPlanes = 1
-            bmi.bmiHeader.biBitCount = 32
-            bmi.bmiHeader.biCompression = 0
-
-            p_bits = ctypes.c_void_p()
-            hbmp = gdi32.CreateDIBSection(hdc_screen, ctypes.byref(bmi), 0, ctypes.byref(p_bits), None, 0)
-            if not hbmp or not p_bits:
-                gdi32.DeleteDC(hdc_mem)
-                user32.ReleaseDC(0, hdc_screen)
-                return None
-
-            old_bmp = gdi32.SelectObject(hdc_mem, hbmp)
-
-            white_brush = gdi32.CreateSolidBrush(0x00FFFFFF)
-            rect = RECT(0, 0, target_w, target_h)
-            user32.FillRect(hdc_mem, ctypes.byref(rect), white_brush)
-            gdi32.DeleteObject(white_brush)
-
-            gdi32.PlayEnhMetaFile(hdc_mem, hemf, ctypes.byref(rect))
-
-            buf_size = target_w * target_h * 4
-            buffer = (ctypes.c_ubyte * buf_size).from_address(p_bits.value)
-            raw_bytes = bytes(buffer)
-
-            gdi32.SelectObject(hdc_mem, old_bmp)
-            gdi32.DeleteObject(hbmp)
-            gdi32.DeleteDC(hdc_mem)
-            user32.ReleaseDC(0, hdc_screen)
-
-            return Image.frombytes('RGBA', (target_w, target_h), raw_bytes, 'raw', 'BGRA')
-        finally:
-            gdi32.DeleteEnhMetaFile(hemf)
-    except Exception:
-        return None
 
 def convert_image_bytes_to_png(img_bytes: bytes, target_filepath: str) -> bool:
     """
     Converts any raw image bytes (PNG, JPEG, GIF, BMP, WEBP, WMF, EMF, TIFF)
     into a standard web-compatible PNG file at target_filepath.
+
+    Backward-compatible API used by the existing question upload pipeline.
+    Now delegates to the new cross-platform vector_converter for EMF/WMF support.
+
+    Returns True if conversion was successful, False otherwise.
     """
     if not img_bytes:
         return False
-        
-    os.makedirs(os.path.dirname(target_filepath), exist_ok=True)
 
-    # 1. Standard PIL Image load (PNG, JPG, BMP, WEBP, GIF, TIFF)
-    try:
-        buf = io.BytesIO(img_bytes)
-        pil_img = Image.open(buf)
-        if pil_img.mode in ("RGBA", "LA") or (pil_img.mode == "P" and "transparency" in pil_img.info):
-            converted = pil_img.convert("RGBA")
-        else:
-            converted = pil_img.convert("RGB")
-        converted.save(target_filepath, "PNG")
+    os.makedirs(os.path.dirname(target_filepath) or ".", exist_ok=True)
+
+    # Detect format from magic bytes
+    original_format = _detect_format(img_bytes)
+
+    # Delegate to the new cross-platform converter
+    from app.services.excel_import.vector_converter import convert_to_png
+    result = convert_to_png(img_bytes, target_filepath, original_format)
+
+    if result.success:
+        logger.debug(f"image_converter: converted {original_format} → PNG via {result.method_used}")
         return True
-    except Exception:
-        pass
 
-    # 2. Windows GDI EMF / WMF Vector Renderer
-    try:
-        gdi_img = render_emf_wmf_gdi(img_bytes)
-        if gdi_img:
-            gdi_img.save(target_filepath, "PNG")
-            return True
-    except Exception:
-        pass
-
-    # 3. Direct write fallback
+    # Last resort: write raw bytes directly (may not be a valid PNG, but preserves data)
     try:
         with open(target_filepath, "wb") as f:
             f.write(img_bytes)
+        logger.warning(f"image_converter: wrote raw bytes as fallback for {original_format}")
         return True
-    except Exception:
+    except Exception as e:
+        logger.error(f"image_converter: all conversion methods failed: {e}")
         return False
+
+
+def _detect_format(img_bytes: bytes) -> str:
+    """
+    Detect image format from magic bytes.
+    Returns extension string like ".emf", ".wmf", ".png", ".jpg", etc.
+    """
+    if len(img_bytes) < 4:
+        return ".bin"
+
+    # EMF: iType=1 at bytes 0-3, signature " EMF" at bytes 40-43
+    if len(img_bytes) >= 44 and img_bytes[:4] == b'\x01\x00\x00\x00' and img_bytes[40:44] == b' EMF':
+        return ".emf"
+
+    # WMF: magic 0xD7CD at bytes 0-1
+    if img_bytes[:2] == b'\xd7\xcd':
+        return ".wmf"
+
+    # PNG: magic bytes
+    if img_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+        return ".png"
+
+    # JPEG: FFD8FF
+    if img_bytes[:3] == b'\xff\xd8\xff':
+        return ".jpg"
+
+    # GIF: GIF87a or GIF89a
+    if img_bytes[:6] in (b'GIF87a', b'GIF89a'):
+        return ".gif"
+
+    # BMP: BM
+    if img_bytes[:2] == b'BM':
+        return ".bmp"
+
+    # TIFF: II (little-endian) or MM (big-endian)
+    if img_bytes[:2] in (b'II', b'MM'):
+        return ".tiff"
+
+    # WEBP: RIFF....WEBP
+    if img_bytes[:4] == b'RIFF' and len(img_bytes) >= 12 and img_bytes[8:12] == b'WEBP':
+        return ".webp"
+
+    return ".bin"

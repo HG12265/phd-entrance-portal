@@ -79,9 +79,10 @@ export default function QuestionUpload() {
     try {
       const res = await uploadQuestionExcel(selectedDeptId, file, replaceExisting);
       const data = res.data;
-      
+
+      // Success if we have 70 questions inserted
       if (data.success_count === 70) {
-        setSuccess('Question bank uploaded successfully!');
+        setSuccess(data.message || 'Question bank uploaded successfully!');
         setUploadResult(data);
         // Refresh department summary
         const summaryRes = await getDepartmentQuestionSummary(selectedDeptId);
@@ -93,6 +94,7 @@ export default function QuestionUpload() {
         setError(data.message || 'Validation failed. Check error details below.');
         setUploadResult(data);
       }
+
     } catch (err) {
       setError(err.response?.data?.detail || 'An error occurred during file upload.');
       if (err.response?.data?.errors) {
@@ -267,7 +269,7 @@ export default function QuestionUpload() {
             </div>
 
             <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 600 }}>Header Requirements:</h4>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', fontSize: '0.75rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', fontSize: '0.75rem', marginBottom: '1.25rem' }}>
               <span className="user-badge" style={{ backgroundColor: '#f1f5f9', color: '#1e293b' }}>Question No</span>
               <span className="user-badge" style={{ backgroundColor: '#f1f5f9', color: '#1e293b' }}>Question Text</span>
               <span className="user-badge" style={{ backgroundColor: '#f1f5f9', color: '#1e293b' }}>Option A</span>
@@ -277,11 +279,41 @@ export default function QuestionUpload() {
               <span className="user-badge" style={{ backgroundColor: '#f1f5f9', color: '#1e293b' }}>Correct Option</span>
               <span className="user-badge" style={{ backgroundColor: '#e2e8f0', color: '#0f172a', fontWeight: 'bold' }}>Marks</span>
             </div>
+
+            {/* Supported STEM Content Formats */}
+            <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', fontWeight: 600 }}>Supported Content Formats:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.8rem' }}>
+              {[
+                { icon: '✓', label: 'Plain text + Unicode (Tamil, Greek, symbols)', color: '#047857', bg: '#ecfdf5' },
+                { icon: '✓', label: 'LaTeX equations  e.g. \\( \\frac{x}{y} \\)', color: '#047857', bg: '#ecfdf5' },
+                { icon: '✓', label: 'PNG / JPEG images embedded in cells', color: '#047857', bg: '#ecfdf5' },
+                { icon: '✓', label: 'EMF vector images (converted via ImageMagick)', color: '#0369a1', bg: '#e0f2fe' },
+                { icon: '✓', label: 'WMF vector images (converted via ImageMagick)', color: '#0369a1', bg: '#e0f2fe' },
+                { icon: '~', label: 'MathType OLE objects (preview extraction)', color: '#b45309', bg: '#fffbeb' },
+                { icon: '~', label: 'Equation Editor 3.x objects (OMML → LaTeX)', color: '#b45309', bg: '#fffbeb' },
+                { icon: '✓', label: 'Images in any option (A / B / C / D)', color: '#047857', bg: '#ecfdf5' },
+                { icon: '✓', label: 'Mixed text + equation + image questions', color: '#047857', bg: '#ecfdf5' },
+              ].map((item, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  padding: '0.3rem 0.6rem', borderRadius: '4px',
+                  backgroundColor: item.bg, color: item.color
+                }}>
+                  <strong style={{ fontSize: '0.9rem' }}>{item.icon}</strong>
+                  <span>{item.label}</span>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.75rem' }}>
+              <strong>✓</strong> = Full support &nbsp;|&nbsp; <strong>~</strong> = Best effort (results may vary)
+            </p>
+
             <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#64748b' }}>
-              <strong>Formula example:</strong> <code>{"( E = mc^2 )"}</code>, <code>{"( \\frac{x}{y} )"}</code>
+              <strong>LaTeX example:</strong> <code>{"( E = mc^2 )"}</code>, <code>{"( \\frac{x}{y} )"}</code>
             </div>
           </div>
         </div>
+
 
         {/* Upload summary / errors display */}
         {uploadResult && (
