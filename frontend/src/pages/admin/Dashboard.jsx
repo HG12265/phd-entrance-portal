@@ -88,11 +88,7 @@ export default function Dashboard() {
     try {
       const res = await getAdminCredentialsInfo();
       setCredentialsInfo(res.data);
-      if (credRole === 'super_admin') {
-        setAdminEmailInput(res.data.super_admin?.email || '');
-      } else {
-        setAdminEmailInput(res.data.staff_admin?.email || '');
-      }
+      setAdminEmailInput(res.data.my_account?.email || '');
     } catch (err) {
       console.error('Failed to load credentials info:', err);
     }
@@ -152,14 +148,23 @@ export default function Dashboard() {
     setCredSuccess('');
     setCredError('');
 
+    const targetRole = adminUser.role || 'super_admin';
+
     try {
       const res = await updateAdminCredentials({
-        target_role: credRole,
+        target_role: targetRole,
         email: adminEmailInput.trim(),
         password: adminPasswordInput.trim() || undefined
       });
-      setCredSuccess(res.data.message || 'Credentials updated successfully.');
+      setCredSuccess(res.data.message || 'Account credentials updated successfully.');
       setAdminPasswordInput('');
+
+      // Sync local storage if email changed
+      if (res.data.admin && res.data.admin.email) {
+        const updatedUser = { ...adminUser, email: res.data.admin.email };
+        localStorage.setItem('admin_user', JSON.stringify(updatedUser));
+      }
+
       fetchCredentialsInfo();
     } catch (err) {
       setCredError(err.response?.data?.detail || 'Failed to update account credentials.');
@@ -367,56 +372,14 @@ export default function Dashboard() {
                 <span>Account Credentials & Security Settings</span>
               </h3>
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Modify custom email and password credentials for Admin or Staff accounts.
+                Modify custom login email and password for your account ({adminUser.role === 'super_admin' ? 'Super Admin' : 'Staff Account'}).
               </p>
             </div>
 
-            {/* Account Role Selector Tabs */}
-            <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: '0.375rem', gap: '2px' }}>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
-                  setCredRole('super_admin');
-                  setAdminEmailInput(credentialsInfo?.super_admin?.email || '');
-                  setAdminPasswordInput('');
-                  setCredSuccess('');
-                  setCredError('');
-                }}
-                style={{
-                  padding: '0.35rem 0.85rem',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  borderRadius: '0.25rem',
-                  backgroundColor: credRole === 'super_admin' ? '#ffffff' : 'transparent',
-                  color: credRole === 'super_admin' ? 'var(--primary-color)' : '#64748b',
-                  boxShadow: credRole === 'super_admin' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
-                }}
-              >
-                Super Admin Account
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
-                  setCredRole('staff_admin');
-                  setAdminEmailInput(credentialsInfo?.staff_admin?.email || '');
-                  setAdminPasswordInput('');
-                  setCredSuccess('');
-                  setCredError('');
-                }}
-                style={{
-                  padding: '0.35rem 0.85rem',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  borderRadius: '0.25rem',
-                  backgroundColor: credRole === 'staff_admin' ? '#ffffff' : 'transparent',
-                  color: credRole === 'staff_admin' ? 'var(--primary-color)' : '#64748b',
-                  boxShadow: credRole === 'staff_admin' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
-                }}
-              >
-                Staff Account
-              </button>
+            {/* Account Role Badge Indicator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#e0f2fe', border: '1px solid #bae6fd', padding: '0.4rem 0.85rem', borderRadius: '0.375rem', fontWeight: 600, fontSize: '0.85rem', color: '#0369a1' }}>
+              <ShieldCheck size={16} />
+              <span>{adminUser.role === 'super_admin' ? 'Super Admin Account' : 'Staff Account'}</span>
             </div>
           </div>
 
@@ -427,7 +390,7 @@ export default function Dashboard() {
             {/* Form */}
             <form onSubmit={handleUpdateCredentials} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary-color)', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
-                Editing {credRole === 'super_admin' ? 'Super Admin' : 'Staff Admin'} Login Details
+                Editing {adminUser.role === 'super_admin' ? 'Super Admin' : 'Staff Account'} Login Details
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
@@ -435,7 +398,7 @@ export default function Dashboard() {
                 <input
                   type="email"
                   className="form-input"
-                  placeholder={credRole === 'super_admin' ? 'admin@phdportal.com' : 'staff@phdportal.com'}
+                  placeholder={adminUser.role === 'super_admin' ? 'admin@gmail.com' : 'staff@gmail.com'}
                   value={adminEmailInput}
                   onChange={(e) => setAdminEmailInput(e.target.value)}
                   required
@@ -459,10 +422,35 @@ export default function Dashboard() {
                 style={{ fontWeight: 600, padding: '0.65rem 1.25rem', marginTop: '0.5rem' }}
                 disabled={credLoading}
               >
-                {credLoading ? 'Updating Credentials...' : (credRole === 'super_admin' ? '💾 Save Admin Credentials' : '💾 Save Staff Credentials')}
+                {credLoading ? 'Updating Credentials...' : '💾 Save Account Credentials'}
               </button>
             </form>
 
+            {/* Permanent Master Defaults Info Box */}
+            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.5rem', padding: '1.25rem' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <ShieldCheck size={16} style={{ color: 'var(--primary-color)' }} />
+                <span>Permanent Master Backup Login</span>
+              </div>
+              <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 0.75rem 0', lineHeight: '1.4' }}>
+                The following master default credentials remain permanently active as a fallback:
+              </p>
+              
+              <div style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '0.375rem', padding: '0.75rem', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Default Email:</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0f172a' }}>
+                    {adminUser.role === 'super_admin' ? 'admin@gmail.com' : 'staff@gmail.com'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Default Password:</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0f172a' }}>
+                    GOWtham2004@
+                  </span>
+                </div>
+              </div>
+            </div>
 
           </div>
         </div>

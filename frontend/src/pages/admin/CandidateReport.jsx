@@ -92,7 +92,7 @@ export default function CandidateReport() {
     <div className="dashboard-layout">
       <Sidebar />
       <div className="page-container printing-area">
-        
+
         {/* Navigation / Header Buttons */}
         <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <button className="btn btn-secondary" onClick={() => navigate('/admin/reports')}>
@@ -115,9 +115,9 @@ export default function CandidateReport() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', textAlign: 'left' }}>
               {candidate.photo_url ? (
-                <img 
-                  src={getImageUrl(candidate.photo_url)} 
-                  alt={candidate.name} 
+                <img
+                  src={getImageUrl(candidate.photo_url)}
+                  alt={candidate.name}
                   onError={(e) => { e.target.style.display = 'none'; }}
                   style={{ width: '80px', height: '100px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                 />
@@ -136,7 +136,7 @@ export default function CandidateReport() {
                 </p>
               </div>
             </div>
-            
+
             {hasAttempt ? (
               <div style={{
                 padding: '0.75rem 1.75rem',
@@ -167,7 +167,7 @@ export default function CandidateReport() {
 
         {/* Details Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-          
+
           {/* Attempt Statistics */}
           <div className="card" style={{ padding: '1.5rem', textAlign: 'left' }}>
             <h3 className="card-title" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
@@ -177,19 +177,19 @@ export default function CandidateReport() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', textAlign: 'center' }}>
                 <div style={{ padding: '0.75rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.25rem' }}>
                   <span style={{ display: 'block', fontSize: '0.75rem', color: '#166534' }}>Total Score</span>
-                  <strong style={{ fontSize: '1.4rem', color: '#166534' }}>{attempt.score} / 70 <span style={{ fontSize: '0.85rem', fontWeight: 'normal' }}>Marks</span></strong>
+                  <strong style={{ fontSize: '1.5rem', color: '#166534' }}>{attempt.score} / 70</strong>
                 </div>
                 <div style={{ padding: '0.75rem', backgroundColor: 'var(--background-color)', border: '1px solid var(--border-color)', borderRadius: '0.25rem' }}>
-                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--success-color)' }}>Correct Answers</span>
-                  <strong style={{ fontSize: '1.4rem', color: 'var(--success-color)' }}>{attempt.correct_count} <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>Qns</span></strong>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--success-color)' }}>Correct</span>
+                  <strong style={{ fontSize: '1.5rem', color: 'var(--success-color)' }}>{attempt.correct_count}</strong>
                 </div>
                 <div style={{ padding: '0.75rem', backgroundColor: 'var(--background-color)', border: '1px solid var(--border-color)', borderRadius: '0.25rem' }}>
-                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--danger-color)' }}>Incorrect Answers</span>
-                  <strong style={{ fontSize: '1.4rem', color: 'var(--danger-color)' }}>{attempt.wrong_count} <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>Qns</span></strong>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--danger-color)' }}>Incorrect</span>
+                  <strong style={{ fontSize: '1.5rem', color: 'var(--danger-color)' }}>{attempt.wrong_count}</strong>
                 </div>
                 <div style={{ padding: '0.75rem', backgroundColor: 'var(--background-color)', border: '1px solid var(--border-color)', borderRadius: '0.25rem' }}>
                   <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Unanswered</span>
-                  <strong style={{ fontSize: '1.4rem', color: '#64748b' }}>{attempt.unanswered_count} <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>Qns</span></strong>
+                  <strong style={{ fontSize: '1.5rem', color: '#64748b' }}>{attempt.unanswered_count}</strong>
                 </div>
               </div>
             ) : (
@@ -241,11 +241,11 @@ export default function CandidateReport() {
                   {answers.map((ans) => {
                     const isCorrect = ans.is_correct;
                     const isUnanswered = !ans.candidate_answer;
-                    
+
                     let bgStatus = '#e2e8f0'; // Gray (Unanswered)
                     let textStatusColor = '#475569';
                     let statusLabel = 'Unanswered';
-                    
+
                     if (!isUnanswered) {
                       bgStatus = isCorrect ? '#d1fae5' : '#fef2f2'; // Green or Red
                       textStatusColor = isCorrect ? '#065f46' : '#991b1b';
@@ -272,9 +272,9 @@ export default function CandidateReport() {
                           </div>
                         </td>
                         <td>
-                          <span style={{ 
-                            fontFamily: 'monospace', 
-                            fontWeight: 700, 
+                          <span style={{
+                            fontFamily: 'monospace',
+                            fontWeight: 700,
                             fontSize: '1rem',
                             color: !isUnanswered ? (isCorrect ? 'var(--success-color)' : 'var(--danger-color)') : 'var(--text-secondary)'
                           }}>

@@ -132,22 +132,24 @@ def get_credentials_info(
     db: Session = Depends(get_db),
     current_admin: AdminUser = Depends(get_current_admin)
 ):
-    """Return current configured emails for Super Admin and Staff Admin."""
-    super_admin = db.query(AdminUser).filter(AdminUser.role == "super_admin").first()
-    staff_admin = db.query(AdminUser).filter(AdminUser.role == "staff_admin").first()
+    """Return current configured email and credentials info strictly scoped for current logged in user's role."""
+    is_super = (current_admin.role == "super_admin")
+    target_role = "super_admin" if is_super else "staff_admin"
+    
+    admin_obj = db.query(AdminUser).filter(AdminUser.role == target_role).first()
+    
+    default_email = "admin@gmail.com" if is_super else "staff@gmail.com"
+    default_name = "Super Admin" if is_super else "Staff Admin"
     
     return {
-        "super_admin": {
-            "name": super_admin.name if super_admin else "Super Admin",
-            "email": super_admin.email if super_admin else "admin@phdportal.com"
+        "role": target_role,
+        "my_account": {
+            "name": admin_obj.name if admin_obj else default_name,
+            "email": admin_obj.email if admin_obj else default_email
         },
-        "staff_admin": {
-            "name": staff_admin.name if staff_admin else "Staff Admin",
-            "email": staff_admin.email if staff_admin else "staff@phdportal.com"
-        },
-        "permanent_defaults": {
-            "admin": {"email": "admin@gmail.com", "password": "GOWtham2004@"},
-            "staff": {"email": "staff@gmail.com", "password": "GOWtham2004@"}
+        "permanent_default": {
+            "email": default_email,
+            "password": "GOWtham2004@"
         }
     }
 
@@ -157,22 +159,24 @@ def update_credentials(
     db: Session = Depends(get_db),
     current_admin: AdminUser = Depends(get_current_admin)
 ):
-    """Update Email and/or Password for Super Admin or Staff Admin."""
-    if payload.target_role not in ["super_admin", "staff_admin"]:
+    """Update Email and/or Password for currently authenticated admin user only."""
+    # Strict role isolation: User can ONLY modify their own role account credentials
+    target_role = current_admin.role
+    if payload.target_role and payload.target_role != target_role:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Target role must be 'super_admin' or 'staff_admin'"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: You are logged in as {current_admin.role} and cannot modify {payload.target_role} credentials."
         )
 
-    admin_obj = db.query(AdminUser).filter(AdminUser.role == payload.target_role).first()
+    admin_obj = db.query(AdminUser).filter(AdminUser.role == target_role).first()
     
     if not admin_obj:
-        default_email = "admin@phdportal.com" if payload.target_role == "super_admin" else "staff@phdportal.com"
+        default_email = "admin@gmail.com" if target_role == "super_admin" else "staff@gmail.com"
         admin_obj = AdminUser(
-            name="Super Admin" if payload.target_role == "super_admin" else "Staff Admin",
+            name="Super Admin" if target_role == "super_admin" else "Staff Admin",
             email=default_email,
-            password_hash=hash_password("MCA2026"),
-            role=payload.target_role,
+            password_hash=hash_password("GOWtham2004@"),
+            role=target_role,
             is_active=True
         )
         db.add(admin_obj)
@@ -196,11 +200,11 @@ def update_credentials(
     db.commit()
     db.refresh(admin_obj)
 
-    log_info(f"Admin credentials updated by {current_admin.email} for role={payload.target_role}: new_email={admin_obj.email}")
+    log_info(f"Admin credentials updated by {current_admin.email} for role={target_role}: new_email={admin_obj.email}")
 
     return {
         "success": True,
-        "message": f"Credentials for {payload.target_role} updated successfully.",
+        "message": f"Account credentials updated successfully.",
         "admin": {
             "id": admin_obj.id,
             "name": admin_obj.name,
