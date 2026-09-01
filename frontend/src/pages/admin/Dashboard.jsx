@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import api, { getDashboardQuestionSummary, purgeAllData, getAdminCredentialsInfo, updateAdminCredentials, downloadFullBackup } from '../../services/api';
-import { 
-  Building2, 
-  Users, 
-  Camera, 
-  BookOpen, 
-  PenTool, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Building2,
+  Users,
+  Camera,
+  BookOpen,
+  PenTool,
+  CheckCircle2,
+  XCircle,
   Hourglass,
   Trash2,
   AlertTriangle,
@@ -426,31 +426,6 @@ export default function Dashboard() {
               </button>
             </form>
 
-            {/* Permanent Master Defaults Info Box */}
-            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.5rem', padding: '1.25rem' }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <ShieldCheck size={16} style={{ color: 'var(--primary-color)' }} />
-                <span>Permanent Master Backup Login</span>
-              </div>
-              <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 0.75rem 0', lineHeight: '1.4' }}>
-                The following master default credentials remain permanently active as a fallback:
-              </p>
-              
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '0.375rem', padding: '0.75rem', fontSize: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                  <span style={{ color: '#64748b', fontWeight: 600 }}>Default Email:</span>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0f172a' }}>
-                    {adminUser.role === 'super_admin' ? 'admin@gmail.com' : 'staff@gmail.com'}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b', fontWeight: 600 }}>Default Password:</span>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0f172a' }}>
-                    GOWtham2004@
-                  </span>
-                </div>
-              </div>
-            </div>
 
           </div>
         </div>
