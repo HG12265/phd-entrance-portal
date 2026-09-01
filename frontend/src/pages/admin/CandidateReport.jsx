@@ -177,19 +177,19 @@ export default function CandidateReport() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', textAlign: 'center' }}>
                 <div style={{ padding: '0.75rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.25rem' }}>
                   <span style={{ display: 'block', fontSize: '0.75rem', color: '#166534' }}>Total Score</span>
-                  <strong style={{ fontSize: '1.5rem', color: '#166534' }}>{attempt.score} / 70</strong>
+                  <strong style={{ fontSize: '1.4rem', color: '#166534' }}>{attempt.score} / 70 <span style={{ fontSize: '0.85rem', fontWeight: 'normal' }}>Marks</span></strong>
                 </div>
                 <div style={{ padding: '0.75rem', backgroundColor: 'var(--background-color)', border: '1px solid var(--border-color)', borderRadius: '0.25rem' }}>
-                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--success-color)' }}>Correct</span>
-                  <strong style={{ fontSize: '1.5rem', color: 'var(--success-color)' }}>{attempt.correct_count}</strong>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--success-color)' }}>Correct Answers</span>
+                  <strong style={{ fontSize: '1.4rem', color: 'var(--success-color)' }}>{attempt.correct_count} <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>Qns</span></strong>
                 </div>
                 <div style={{ padding: '0.75rem', backgroundColor: 'var(--background-color)', border: '1px solid var(--border-color)', borderRadius: '0.25rem' }}>
-                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--danger-color)' }}>Incorrect</span>
-                  <strong style={{ fontSize: '1.5rem', color: 'var(--danger-color)' }}>{attempt.wrong_count}</strong>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--danger-color)' }}>Incorrect Answers</span>
+                  <strong style={{ fontSize: '1.4rem', color: 'var(--danger-color)' }}>{attempt.wrong_count} <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>Qns</span></strong>
                 </div>
                 <div style={{ padding: '0.75rem', backgroundColor: 'var(--background-color)', border: '1px solid var(--border-color)', borderRadius: '0.25rem' }}>
                   <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Unanswered</span>
-                  <strong style={{ fontSize: '1.5rem', color: '#64748b' }}>{attempt.unanswered_count}</strong>
+                  <strong style={{ fontSize: '1.4rem', color: '#64748b' }}>{attempt.unanswered_count} <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>Qns</span></strong>
                 </div>
               </div>
             ) : (
