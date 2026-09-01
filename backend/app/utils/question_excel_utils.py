@@ -126,9 +126,54 @@ def normalize_chemical_and_math_text(text: str) -> str:
     if not text:
         return ""
     val_str = str(text).strip()
+    
+    # 1. Symbol font character replacements (e.g. MS Word / Excel symbol font encodings)
+    val_str = val_str.replace('Ñ2', '∇²').replace('Ñ', '∇')
+    val_str = val_str.replace('hbar', 'ħ').replace('hb', 'ħ')
+    val_str = val_str.replace('ħ2', 'ħ²')
+    val_str = val_str.replace('εo', 'ε₀').replace('ε0', 'ε₀')
+    
+    # 2. Degree symbol format: e.g. 45⁰ or 45^0 -> 45°
+    val_str = re.sub(r'(\d+)\s*[⁰º]', r'\1°', val_str)
+    val_str = re.sub(r'(\d+)\s*\^0', r'\1°', val_str)
+    
+    # 3. Mass spectrometry chemical ions (e.g. C6H5+, C6H5CH+OH, C6H5CH2O+)
+    val_str = re.sub(r'C6H5CH2O\+', 'C₆H₅CH₂O⁺', val_str)
+    val_str = re.sub(r'C6H5CH\+OH', 'C₆H₅CH⁺OH', val_str)
+    val_str = re.sub(r'C6H5\+', 'C₆H₅⁺', val_str)
+    val_str = re.sub(r'C6H5', 'C₆H₅', val_str)
+    
+    # 4. Scientific exponent notation: e.g. 1023 -> 10²³, 10-24 -> 10⁻²⁴, 1010 -> 10¹⁰, Am2 -> A·m²
+    val_str = re.sub(r'(?i)(?<=[x\*\s\d])10\s*-\s*(\d+)', r'10<sup>-\1</sup>', val_str)
+    val_str = re.sub(r'(?i)(?<=[x\*\s\d])10\s*(\d{2,3})\b', r'10<sup>\1</sup>', val_str)
+    val_str = re.sub(r'Am2\b', 'A·m<sup>2</sup>', val_str)
+    
+    # 5. Chemical formula subscript auto-converter (e.g. CO2, H2O, C6H12O6, O2, H2, CH4, 2H2O, 2O2, C2H6, H2SO4, HCl, HNO3, NaCl)
+    def convert_chem(match):
+        s = match.group(0)
+        subs = {'0':'₀', '1':'₁', '2':'₂', '3':'₃', '4':'₄', '5':'₅', '6':'₆', '7':'₇', '8':'₈', '9':'₉'}
+        res = []
+        for i, char in enumerate(s):
+            if char.isdigit() and i > 0 and (s[i-1].isalpha() or s[i-1] in subs.values()):
+                res.append(subs.get(char, char))
+            else:
+                res.append(char)
+        return "".join(res)
+        
+    chem_pattern = r'\b(?:[A-Z][a-z]?\d*)+\b'
+    val_str = re.sub(chem_pattern, convert_chem, val_str)
+    
+    # 6. Map unicode subscripts and superscripts to HTML tags
     for char, html_sub in SUB_SUPER_MAP.items():
         if char in val_str:
             val_str = val_str.replace(char, html_sub)
+            
+    # 7. Merge adjacent sub/sup tags (e.g. <sub>1</sub><sub>2</sub> -> <sub>12</sub>)
+    while '<sub>' in val_str and '</sub><sub>' in val_str:
+        val_str = re.sub(r'<sub>([^<]+)</sub><sub>([^<]+)</sub>', r'<sub>\1\2</sub>', val_str)
+    while '<sup>' in val_str and '</sup><sup>' in val_str:
+        val_str = re.sub(r'<sup>([^<]+)</sup><sup>([^<]+)</sup>', r'<sup>\1\2</sup>', val_str)
+        
     return normalize_latex_math_in_text(val_str)
 
 def parse_marks(value: Any) -> int:
