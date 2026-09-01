@@ -159,8 +159,12 @@ def normalize_chemical_and_math_text(text: str) -> str:
 
     # 4. Unit vectors notation (i^ + j^ + k^)
     val_str = re.sub(r'([ijk])\^', r'\1̂', val_str)
+
+    # 5. Clean up matrix question trailing clutter (e.g. Consider the matrix M = ... -> Consider the matrix M =)
+    if 'matrix' in val_str.lower():
+        val_str = re.sub(r'(matrix\s+[A-Za-z0-9]+\s*=)\s*[\s\.]+', r'\1 ', val_str)
     
-    # 5. Degree symbol format: e.g. 45⁰ or 45^0 -> 45°
+    # 6. Degree symbol format: e.g. 45⁰ or 45^0 -> 45°
     val_str = re.sub(r'(\d+)\s*[⁰º]', r'\1°', val_str)
     val_str = re.sub(r'(\d+)\s*\^0', r'\1°', val_str)
     

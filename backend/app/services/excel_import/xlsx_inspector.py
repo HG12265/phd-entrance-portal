@@ -230,6 +230,19 @@ def extract_excel_drawings_with_anchors(
                                     except (ValueError, TypeError):
                                         pass
 
+                        # Check margin-top CSS style for floating OLE / MathType matrix shapes
+                        style = shape.attrib.get('style', '')
+                        import re
+                        m_top = re.search(r'margin-top:\s*([\d\.]+)pt', style)
+                        if m_top:
+                            try:
+                                top_pt = float(m_top.group(1))
+                                margin_row = int(top_pt / 43.0) + 1
+                                if row_num is None or abs(margin_row - row_num) >= 3:
+                                    row_num = margin_row
+                            except (ValueError, TypeError):
+                                pass
+
                         if row_num is not None:
                             field_name = col_field_map.get(col_num, "question_text")
                             if field_name not in ["question_text", "option_a", "option_b", "option_c", "option_d"]:
@@ -256,7 +269,8 @@ def extract_excel_drawings_with_anchors(
                                     row_field_images[row_num] = {}
                                 if field_name not in row_field_images[row_num]:
                                     row_field_images[row_num][field_name] = []
-                                if web_url not in row_field_images[row_num][field_name]:
+                                # Only add if not already having an image for this target media on this row
+                                if not row_field_images[row_num][field_name]:
                                     row_field_images[row_num][field_name].append(web_url)
                 except Exception as v_err:
                     print(f"Error parsing VML drawing {v_file}: {v_err}")
