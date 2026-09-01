@@ -147,7 +147,20 @@ def normalize_chemical_and_math_text(text: str) -> str:
         val_str = re.sub(r'\bY\s*=\s*0\b', 'Ψ = 0', val_str)
         val_str = val_str.replace('ħ2', 'ħ²')
     
-    # 3. Degree symbol format: e.g. 45⁰ or 45^0 -> 45°
+    # 3. Poisson's equation and electrostatics symbols: ∇²f = - r/eo -> ∇²ϕ = - ρ/ε₀
+    if any(k in val_str for k in ['Poisson', '∇²', 'div', 'eo', 'e0', 'r/eo', 'r/e0', 'f =', 'Curl']):
+        val_str = re.sub(r'∇²\s*f\b', '∇²ϕ', val_str)
+        val_str = re.sub(r'∇²\s*phi\b', '∇²ϕ', val_str)
+        val_str = re.sub(r'\bdivE\b', 'div E', val_str)
+        val_str = re.sub(r'-\s*r\s*/\s*e[o0]', '- ρ/ε₀', val_str)
+        val_str = re.sub(r'\br\s*/\s*e[o0]', 'ρ/ε₀', val_str)
+        val_str = re.sub(r'/\s*e[o0]', '/ε₀', val_str)
+        val_str = re.sub(r'\b-\s*r\b', '- ρ', val_str)
+
+    # 4. Unit vectors notation (i^ + j^ + k^)
+    val_str = re.sub(r'([ijk])\^', r'\1̂', val_str)
+    
+    # 5. Degree symbol format: e.g. 45⁰ or 45^0 -> 45°
     val_str = re.sub(r'(\d+)\s*[⁰º]', r'\1°', val_str)
     val_str = re.sub(r'(\d+)\s*\^0', r'\1°', val_str)
     
