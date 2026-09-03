@@ -358,11 +358,14 @@ def upload_questions(
             for f_name, url_list in f_map.items():
                 if f_name not in row_field_images[r_num]:
                     row_field_images[r_num][f_name] = []
-                row_field_images[r_num][f_name].extend(url_list)
+                for u in url_list:
+                    if u not in row_field_images[r_num][f_name]:
+                        row_field_images[r_num][f_name].append(u)
     except Exception as inspect_err:
         from app.logging_config import log_error
         log_error(f"OpenXML Drawing extraction warning: {inspect_err}")
 
+    # Fallback to openpyxl ws._images ONLY for fields that were NOT already extracted above
     try:
         from openpyxl import load_workbook
         wb = load_workbook(stored_path)
@@ -386,6 +389,10 @@ def upload_questions(
                     field_name = col_field_map.get(col_num, "question_text")
                     if field_name not in ["question_text", "option_a", "option_b", "option_c", "option_d"]:
                         field_name = "question_text"
+
+                    # Skip if this field in this row was already extracted by OpenXML drawings
+                    if row_field_images.get(row_num, {}).get(field_name):
+                        continue
                         
                     img_bytes = None
                     if hasattr(img, 'ref') and img.ref:
@@ -462,7 +469,8 @@ def upload_questions(
         # Build combined text + image tags for each field
         def build_field_content(field_name: str) -> str:
             raw = clean_question_text(row.get(field_name))
-            urls = row_imgs.get(field_name, [])
+            raw_urls = row_imgs.get(field_name, [])
+            urls = list(dict.fromkeys(raw_urls))
             if not urls:
                 return raw
             img_tags = "".join([f'<img src="{u}" alt="{field_name} image" />' for u in urls])
