@@ -305,6 +305,61 @@ def get_candidate_by_id(
         created_at=cand.created_at
     )
 
+@router.get("/template")
+def download_candidate_template(
+    current_admin: AdminUser = Depends(get_current_admin)
+):
+    """Generates and serves sample Candidate Upload Excel template."""
+    from fastapi.responses import FileResponse
+    template_path = os.path.join(EXCEL_DIR, "Candidate_Upload_Template.xlsx")
+
+    sample_data = [
+        {
+            "Application ID": "PHD2026001",
+            "Applicant Name": "Ramesh Kumar",
+            "Initial": "K",
+            "Date of Birth": "15-05-1998",
+            "Department": "Computer Science & Engineering",
+            "Programme Offered": "Ph.D Full Time",
+            "Category (FT/PT)": "FT",
+            "Mobile Number": "9876543210",
+            "Email ID": "ramesh@gmail.com",
+            "Exam Session": "Session 1"
+        },
+        {
+            "Application ID": "PHD2026002",
+            "Applicant Name": "Priya Dharshini",
+            "Initial": "M",
+            "Date of Birth": "22-08-1999",
+            "Department": "Mathematics",
+            "Programme Offered": "Ph.D Part Time",
+            "Category (FT/PT)": "PT",
+            "Mobile Number": "9876543211",
+            "Email ID": "priya@gmail.com",
+            "Exam Session": "Session 2"
+        },
+        {
+            "Application ID": "PHD2026003",
+            "Applicant Name": "Senthil Nathan",
+            "Initial": "S",
+            "Date of Birth": "10-12-1997",
+            "Department": "Physics",
+            "Programme Offered": "Ph.D Full Time",
+            "Category (FT/PT)": "FT",
+            "Mobile Number": "9876543212",
+            "Email ID": "senthil@gmail.com",
+            "Exam Session": "Session 3"
+        }
+    ]
+    df = pd.DataFrame(sample_data)
+    df.to_excel(template_path, index=False)
+
+    return FileResponse(
+        template_path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="Candidate_Upload_Template.xlsx"
+    )
+
 @router.post("/upload-excel", response_model=CandidateUploadSummary)
 def upload_excel(
     file: UploadFile = File(...),

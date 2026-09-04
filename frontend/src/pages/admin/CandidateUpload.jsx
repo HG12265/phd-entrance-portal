@@ -165,6 +165,24 @@ export default function CandidateUpload() {
     }
   };
 
+  const handleDownloadCandidateTemplate = async () => {
+    try {
+      const response = await api.get('/api/admin/candidates/template', {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Candidate_Upload_Template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error('Failed to download candidate template', err);
+      setError('Failed to download candidate excel template.');
+    }
+  };
+
   return (
     <div className="dashboard-layout">
       <Sidebar />
@@ -179,6 +197,18 @@ export default function CandidateUpload() {
           {/* Section A: Excel Upload */}
           <div className="card">
             <h3 className="card-title">A. Candidate Excel Upload</h3>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary w-full"
+                onClick={handleDownloadCandidateTemplate}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              >
+                <span>📥</span> Download Sample Excel Template
+              </button>
+            </div>
+
             <form onSubmit={handleExcelUpload}>
               <div className="form-group">
                 <label className="form-label" htmlFor="excel-file-input">Select Excel File (.xlsx, .xls)</label>
