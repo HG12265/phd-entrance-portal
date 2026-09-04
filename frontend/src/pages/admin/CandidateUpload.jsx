@@ -167,7 +167,7 @@ export default function CandidateUpload() {
 
   const handleDownloadCandidateTemplate = async () => {
     try {
-      const response = await api.get('/api/admin/candidates/template', {
+      const response = await api.get('/api/admin/candidates/download-template', {
         responseType: 'blob'
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));

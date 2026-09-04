@@ -265,6 +265,51 @@ def get_candidates(
         "pages": pages
     }
 
+@router.get("/download-template")
+def download_candidate_template(
+    current_admin: AdminUser = Depends(get_current_admin)
+):
+    """Generates and serves sample Candidate Upload Excel template."""
+    from fastapi.responses import FileResponse
+    template_path = os.path.join(EXCEL_DIR, "Candidate_Upload_Template.xlsx")
+
+    sample_data = [
+        {
+            "Application ID": "CETPHD/J26/0128",
+            "Applicant Name": "Gowtham",
+            "Initial": "G",
+            "Date of Birth": "06-01-2004",
+            "Category (FT/PT)": "PT",
+            "Mobile Number": "9344232463",
+            "Email Address": "gowtham114411@gmail.com",
+            "Department": "Computer Science",
+            "Programme Offered": "Ph.D. Computer Science",
+            "Subject": "Computer Science",
+            "Exam Session": "Session 1"
+        },
+        {
+            "Application ID": "CETPHD/J26/0129",
+            "Applicant Name": "Priya Dharshini",
+            "Initial": "M",
+            "Date of Birth": "22-08-1999",
+            "Category (FT/PT)": "FT",
+            "Mobile Number": "9876543211",
+            "Email Address": "priya@gmail.com",
+            "Department": "Mathematics",
+            "Programme Offered": "Ph.D. Mathematics",
+            "Subject": "Mathematics",
+            "Exam Session": "Session 2"
+        }
+    ]
+    df = pd.DataFrame(sample_data)
+    df.to_excel(template_path, index=False)
+
+    return FileResponse(
+        template_path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="Candidate_Upload_Template.xlsx"
+    )
+
 @router.get("/{candidate_id}", response_model=CandidateResponse)
 def get_candidate_by_id(
     candidate_id: int,
@@ -303,51 +348,6 @@ def get_candidate_by_id(
         photo_status=cand.photo_status,
         is_active=cand.is_active,
         created_at=cand.created_at
-    )
-
-@router.get("/template")
-def download_candidate_template(
-    current_admin: AdminUser = Depends(get_current_admin)
-):
-    """Generates and serves sample Candidate Upload Excel template."""
-    from fastapi.responses import FileResponse
-    template_path = os.path.join(EXCEL_DIR, "Candidate_Upload_Template.xlsx")
-
-    sample_data = [
-        {
-            "Application ID": "CETPHD/J26/0128",
-            "Applicant Name": "Gowtham",
-            "Initial": "G",
-            "Date of Birth": "06-01-2004",
-            "Category (FT/PT)": "PT",
-            "Mobile Number": "9344232463",
-            "Email Address": "gowtham114411@gmail.com",
-            "Department": "Computer Science",
-            "Programme Offered": "Ph.D. Computer Science",
-            "Subject": "Computer Science",
-            "Exam Session": "Session 1"
-        },
-        {
-            "Application ID": "CETPHD/J26/0129",
-            "Applicant Name": "Sam",
-            "Initial": "B",
-            "Date of Birth": "22-08-1999",
-            "Category (FT/PT)": "FT",
-            "Mobile Number": "9876543211",
-            "Email Address": "sam@gmail.com",
-            "Department": "Mathematics",
-            "Programme Offered": "Ph.D. Mathematics",
-            "Subject": "Mathematics",
-            "Exam Session": "Session 2"
-        }
-    ]
-    df = pd.DataFrame(sample_data)
-    df.to_excel(template_path, index=False)
-
-    return FileResponse(
-        template_path,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename="Candidate_Upload_Template.xlsx"
     )
 
 @router.post("/upload-excel", response_model=CandidateUploadSummary)
