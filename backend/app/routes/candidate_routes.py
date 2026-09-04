@@ -315,40 +315,30 @@ def download_candidate_template(
 
     sample_data = [
         {
-            "Application ID": "PHD2026001",
-            "Applicant Name": "Ramesh Kumar",
-            "Initial": "K",
-            "Date of Birth": "15-05-1998",
-            "Department": "Computer Science & Engineering",
-            "Programme Offered": "Ph.D Full Time",
-            "Category (FT/PT)": "FT",
-            "Mobile Number": "9876543210",
-            "Email ID": "ramesh@gmail.com",
+            "Application ID": "CETPHD/J26/0128",
+            "Applicant Name": "Gowtham",
+            "Initial": "G",
+            "Date of Birth": "06-01-2004",
+            "Category (FT/PT)": "PT",
+            "Mobile Number": "9344232463",
+            "Email Address": "gowtham114411@gmail.com",
+            "Department": "Computer Science",
+            "Programme Offered": "Ph.D. Computer Science",
+            "Subject": "Computer Science",
             "Exam Session": "Session 1"
         },
         {
-            "Application ID": "PHD2026002",
+            "Application ID": "CETPHD/J26/0129",
             "Applicant Name": "Priya Dharshini",
             "Initial": "M",
             "Date of Birth": "22-08-1999",
-            "Department": "Mathematics",
-            "Programme Offered": "Ph.D Part Time",
-            "Category (FT/PT)": "PT",
-            "Mobile Number": "9876543211",
-            "Email ID": "priya@gmail.com",
-            "Exam Session": "Session 2"
-        },
-        {
-            "Application ID": "PHD2026003",
-            "Applicant Name": "Senthil Nathan",
-            "Initial": "S",
-            "Date of Birth": "10-12-1997",
-            "Department": "Physics",
-            "Programme Offered": "Ph.D Full Time",
             "Category (FT/PT)": "FT",
-            "Mobile Number": "9876543212",
-            "Email ID": "senthil@gmail.com",
-            "Exam Session": "Session 3"
+            "Mobile Number": "9876543211",
+            "Email Address": "priya@gmail.com",
+            "Department": "Mathematics",
+            "Programme Offered": "Ph.D. Mathematics",
+            "Subject": "Mathematics",
+            "Exam Session": "Session 2"
         }
     ]
     df = pd.DataFrame(sample_data)
