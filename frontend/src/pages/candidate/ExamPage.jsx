@@ -1021,7 +1021,7 @@ export default function ExamPage() {
                           </div>
                         </div>
                         
-                        {q.image_path && (
+                        {q.image_path && (!q.question_text || !q.question_text.includes('<img')) && (
                           <div style={{ margin: '0.5rem 0 0.5rem 1.5rem', textAlign: 'left' }}>
                             <img 
                               src={getImageUrl(q.image_path)} 
