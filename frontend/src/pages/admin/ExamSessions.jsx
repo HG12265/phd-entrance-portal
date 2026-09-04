@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Sidebar from '../../components/Sidebar';
 import api from '../../services/api';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Search, Building2, CheckCheck, XCircle } from 'lucide-react';
 
 
 export default function ExamSessions() {
@@ -14,6 +14,7 @@ export default function ExamSessions() {
   // Department states
   const [allDepartments, setAllDepartments] = useState([]);
   const [selectedDepts, setSelectedDepts] = useState([]);
+  const [addDeptSearch, setAddDeptSearch] = useState('');
 
   // Form states (Add Exam Session)
   const [sessionName, setSessionName] = useState('');
@@ -35,6 +36,7 @@ export default function ExamSessions() {
   const [editInstructions, setEditInstructions] = useState('');
   const [editIsActive, setEditIsActive] = useState(true);
   const [editSelectedDepts, setEditSelectedDepts] = useState([]);
+  const [editDeptSearch, setEditDeptSearch] = useState('');
 
   // Fetch all sessions
   const fetchSessions = async () => {
@@ -101,6 +103,64 @@ export default function ExamSessions() {
     return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
   };
 
+  // Department Filtering & Helpers for Add Form
+  const filteredAddDepts = allDepartments.filter(d => 
+    d.department_name.toLowerCase().includes(addDeptSearch.toLowerCase()) ||
+    (d.department_code && d.department_code.toLowerCase().includes(addDeptSearch.toLowerCase()))
+  );
+
+  const toggleAddDept = (deptId) => {
+    if (selectedDepts.includes(deptId)) {
+      setSelectedDepts(selectedDepts.filter(id => id !== deptId));
+    } else {
+      setSelectedDepts([...selectedDepts, deptId]);
+    }
+  };
+
+  const handleSelectAllAdd = () => {
+    const visibleIds = filteredAddDepts.map(d => d.id);
+    const combined = Array.from(new Set([...selectedDepts, ...visibleIds]));
+    setSelectedDepts(combined);
+  };
+
+  const handleDeselectAllAdd = () => {
+    if (addDeptSearch.trim()) {
+      const visibleIds = filteredAddDepts.map(d => d.id);
+      setSelectedDepts(selectedDepts.filter(id => !visibleIds.includes(id)));
+    } else {
+      setSelectedDepts([]);
+    }
+  };
+
+  // Department Filtering & Helpers for Edit Form
+  const filteredEditDepts = allDepartments.filter(d => 
+    d.department_name.toLowerCase().includes(editDeptSearch.toLowerCase()) ||
+    (d.department_code && d.department_code.toLowerCase().includes(editDeptSearch.toLowerCase()))
+  );
+
+  const toggleEditDept = (deptId) => {
+    if (editSelectedDepts.includes(deptId)) {
+      setEditSelectedDepts(editSelectedDepts.filter(id => id !== deptId));
+    } else {
+      setEditSelectedDepts([...editSelectedDepts, deptId]);
+    }
+  };
+
+  const handleSelectAllEdit = () => {
+    const visibleIds = filteredEditDepts.map(d => d.id);
+    const combined = Array.from(new Set([...editSelectedDepts, ...visibleIds]));
+    setEditSelectedDepts(combined);
+  };
+
+  const handleDeselectAllEdit = () => {
+    if (editDeptSearch.trim()) {
+      const visibleIds = filteredEditDepts.map(d => d.id);
+      setEditSelectedDepts(editSelectedDepts.filter(id => !visibleIds.includes(id)));
+    } else {
+      setEditSelectedDepts([]);
+    }
+  };
+
   // Handle Add Session Submit
   const handleAddSubmit = async (e) => {
     e.preventDefault();
@@ -134,6 +194,7 @@ export default function ExamSessions() {
       setDurationMinutes(90);
       setInstructions('');
       setSelectedDepts([]);
+      setAddDeptSearch('');
       fetchSessions();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to create exam session.');
@@ -154,6 +215,7 @@ export default function ExamSessions() {
     setEditInstructions(session.instructions || '');
     setEditIsActive(session.is_active);
     setEditSelectedDepts(session.departments ? session.departments.map(d => d.id) : []);
+    setEditDeptSearch('');
     setError('');
     setSuccess('');
   };
@@ -170,6 +232,7 @@ export default function ExamSessions() {
     setEditInstructions('');
     setEditIsActive(true);
     setEditSelectedDepts([]);
+    setEditDeptSearch('');
   };
 
   // Handle Update Session Submit
@@ -426,40 +489,124 @@ export default function ExamSessions() {
                   />
                 </div>
 
+                {/* Enhanced Assign Departments Selector (EDIT FORM) */}
                 <div className="form-group">
-                  <label className="form-label">Assign Departments for Exam</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Building2 size={16} style={{ color: 'var(--primary-color)' }} />
+                      Assign Departments for Exam
+                    </label>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: '1rem', backgroundColor: editSelectedDepts.length > 0 ? '#e0e7ff' : '#f3f4f6', color: editSelectedDepts.length > 0 ? '#4338ca' : '#6b7280' }}>
+                      {editSelectedDepts.length} of {allDepartments.length} Selected
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Search department name or code..."
+                        value={editDeptSearch}
+                        onChange={(e) => setEditDeptSearch(e.target.value)}
+                        style={{ paddingLeft: '28px', paddingRight: '28px', height: '34px', fontSize: '0.825rem' }}
+                      />
+                      {editDeptSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setEditDeptSearch('')}
+                          style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0 }}
+                        >
+                          <XCircle size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleSelectAllEdit}
+                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', height: '34px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      <CheckCheck size={14} /> Select All
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleDeselectAllEdit}
+                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', height: '34px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
                   <div style={{
-                    maxHeight: '150px',
+                    maxHeight: '220px',
                     overflowY: 'auto',
                     border: '1px solid var(--border-color)',
-                    borderRadius: '0.375rem',
-                    padding: '0.75rem',
-                    backgroundColor: 'var(--background-color)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.5rem'
+                    borderRadius: '0.5rem',
+                    padding: '0.5rem',
+                    backgroundColor: '#fafafa',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                    gap: '0.4rem'
                   }}>
-                    {allDepartments.length === 0 ? (
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>No active departments found.</p>
+                    {filteredEditDepts.length === 0 ? (
+                      <div style={{ gridColumn: '1 / -1', padding: '1rem', textAlign: 'center', color: '#6b7280', fontSize: '0.85rem' }}>
+                        {allDepartments.length === 0 ? "No active departments found." : `No department matching "${editDeptSearch}"`}
+                      </div>
                     ) : (
-                      allDepartments.map(dept => {
+                      filteredEditDepts.map(dept => {
                         const isChecked = editSelectedDepts.includes(dept.id);
                         return (
-                          <label key={dept.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', margin: 0 }}>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setEditSelectedDepts([...editSelectedDepts, dept.id]);
-                                } else {
-                                  setEditSelectedDepts(editSelectedDepts.filter(id => id !== dept.id));
-                                }
-                              }}
-                              style={{ width: '16px', height: '16px' }}
-                            />
-                            <span>{dept.department_name} ({dept.department_code})</span>
-                          </label>
+                          <div
+                            key={dept.id}
+                            onClick={() => toggleEditDept(dept.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justify: 'space-between',
+                              gap: '0.4rem',
+                              padding: '0.45rem 0.6rem',
+                              borderRadius: '0.375rem',
+                              border: isChecked ? '1px solid #6366f1' : '1px solid #e5e7eb',
+                              backgroundColor: isChecked ? '#eef2ff' : '#ffffff',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              userSelect: 'none'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', overflow: 'hidden' }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}}
+                                style={{ cursor: 'pointer', accentColor: '#4f46e5', width: '15px', height: '15px' }}
+                              />
+                              <span style={{
+                                fontSize: '0.8rem',
+                                fontWeight: isChecked ? 600 : 400,
+                                color: isChecked ? '#312e81' : '#374151',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}>
+                                {dept.department_name}
+                              </span>
+                            </div>
+                            <span style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                              padding: '0.1rem 0.35rem',
+                              borderRadius: '0.25rem',
+                              backgroundColor: isChecked ? '#c7d2fe' : '#f3f4f6',
+                              color: isChecked ? '#3730a3' : '#6b7280',
+                              flexShrink: 0
+                            }}>
+                              {dept.department_code}
+                            </span>
+                          </div>
                         );
                       })
                     )}
@@ -576,40 +723,124 @@ export default function ExamSessions() {
                   />
                 </div>
 
+                {/* Enhanced Assign Departments Selector (ADD FORM) */}
                 <div className="form-group">
-                  <label className="form-label">Assign Departments for Exam</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Building2 size={16} style={{ color: 'var(--primary-color)' }} />
+                      Assign Departments for Exam
+                    </label>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: '1rem', backgroundColor: selectedDepts.length > 0 ? '#e0e7ff' : '#f3f4f6', color: selectedDepts.length > 0 ? '#4338ca' : '#6b7280' }}>
+                      {selectedDepts.length} of {allDepartments.length} Selected
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Search department name or code..."
+                        value={addDeptSearch}
+                        onChange={(e) => setAddDeptSearch(e.target.value)}
+                        style={{ paddingLeft: '28px', paddingRight: '28px', height: '34px', fontSize: '0.825rem' }}
+                      />
+                      {addDeptSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setAddDeptSearch('')}
+                          style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0 }}
+                        >
+                          <XCircle size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleSelectAllAdd}
+                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', height: '34px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      <CheckCheck size={14} /> Select All
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleDeselectAllAdd}
+                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', height: '34px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
                   <div style={{
-                    maxHeight: '150px',
+                    maxHeight: '220px',
                     overflowY: 'auto',
                     border: '1px solid var(--border-color)',
-                    borderRadius: '0.375rem',
-                    padding: '0.75rem',
-                    backgroundColor: 'var(--background-color)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.5rem'
+                    borderRadius: '0.5rem',
+                    padding: '0.5rem',
+                    backgroundColor: '#fafafa',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                    gap: '0.4rem'
                   }}>
-                    {allDepartments.length === 0 ? (
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>No active departments found.</p>
+                    {filteredAddDepts.length === 0 ? (
+                      <div style={{ gridColumn: '1 / -1', padding: '1rem', textAlign: 'center', color: '#6b7280', fontSize: '0.85rem' }}>
+                        {allDepartments.length === 0 ? "No active departments found." : `No department matching "${addDeptSearch}"`}
+                      </div>
                     ) : (
-                      allDepartments.map(dept => {
+                      filteredAddDepts.map(dept => {
                         const isChecked = selectedDepts.includes(dept.id);
                         return (
-                          <label key={dept.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', margin: 0 }}>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedDepts([...selectedDepts, dept.id]);
-                                } else {
-                                  setSelectedDepts(selectedDepts.filter(id => id !== dept.id));
-                                }
-                              }}
-                              style={{ width: '16px', height: '16px' }}
-                            />
-                            <span>{dept.department_name} ({dept.department_code})</span>
-                          </label>
+                          <div
+                            key={dept.id}
+                            onClick={() => toggleAddDept(dept.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justify: 'space-between',
+                              gap: '0.4rem',
+                              padding: '0.45rem 0.6rem',
+                              borderRadius: '0.375rem',
+                              border: isChecked ? '1px solid #6366f1' : '1px solid #e5e7eb',
+                              backgroundColor: isChecked ? '#eef2ff' : '#ffffff',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              userSelect: 'none'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', overflow: 'hidden' }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}}
+                                style={{ cursor: 'pointer', accentColor: '#4f46e5', width: '15px', height: '15px' }}
+                              />
+                              <span style={{
+                                fontSize: '0.8rem',
+                                fontWeight: isChecked ? 600 : 400,
+                                color: isChecked ? '#312e81' : '#374151',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}>
+                                {dept.department_name}
+                              </span>
+                            </div>
+                            <span style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                              padding: '0.1rem 0.35rem',
+                              borderRadius: '0.25rem',
+                              backgroundColor: isChecked ? '#c7d2fe' : '#f3f4f6',
+                              color: isChecked ? '#3730a3' : '#6b7280',
+                              flexShrink: 0
+                            }}>
+                              {dept.department_code}
+                            </span>
+                          </div>
                         );
                       })
                     )}
