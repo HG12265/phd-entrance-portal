@@ -12,9 +12,9 @@ from app.logging_config import log_exam_event
 router = APIRouter()
 
 def parse_dob(dob_str: str) -> date:
-    """Accept DD-MM-YYYY, DD/MM/YYYY, and YYYY-MM-DD formats."""
+    """Accept DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, DD-Mon-YYYY, and various date formats."""
     s = dob_str.strip()
-    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
+    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d", "%d.%m.%Y", "%d-%b-%Y", "%d-%B-%Y", "%b-%d-%Y", "%B-%d-%Y"):
         try:
             return datetime.strptime(s, fmt).date()
         except ValueError:
