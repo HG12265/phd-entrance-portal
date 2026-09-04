@@ -110,23 +110,20 @@ export default function ExamSessions() {
   );
 
   const toggleAddDept = (deptId) => {
-    if (selectedDepts.includes(deptId)) {
-      setSelectedDepts(selectedDepts.filter(id => id !== deptId));
-    } else {
-      setSelectedDepts([...selectedDepts, deptId]);
-    }
+    setSelectedDepts(prev => 
+      prev.includes(deptId) ? prev.filter(id => id !== deptId) : [...prev, deptId]
+    );
   };
 
   const handleSelectAllAdd = () => {
     const visibleIds = filteredAddDepts.map(d => d.id);
-    const combined = Array.from(new Set([...selectedDepts, ...visibleIds]));
-    setSelectedDepts(combined);
+    setSelectedDepts(prev => Array.from(new Set([...prev, ...visibleIds])));
   };
 
   const handleDeselectAllAdd = () => {
     if (addDeptSearch.trim()) {
       const visibleIds = filteredAddDepts.map(d => d.id);
-      setSelectedDepts(selectedDepts.filter(id => !visibleIds.includes(id)));
+      setSelectedDepts(prev => prev.filter(id => !visibleIds.includes(id)));
     } else {
       setSelectedDepts([]);
     }
@@ -139,23 +136,20 @@ export default function ExamSessions() {
   );
 
   const toggleEditDept = (deptId) => {
-    if (editSelectedDepts.includes(deptId)) {
-      setEditSelectedDepts(editSelectedDepts.filter(id => id !== deptId));
-    } else {
-      setEditSelectedDepts([...editSelectedDepts, deptId]);
-    }
+    setEditSelectedDepts(prev => 
+      prev.includes(deptId) ? prev.filter(id => id !== deptId) : [...prev, deptId]
+    );
   };
 
   const handleSelectAllEdit = () => {
     const visibleIds = filteredEditDepts.map(d => d.id);
-    const combined = Array.from(new Set([...editSelectedDepts, ...visibleIds]));
-    setEditSelectedDepts(combined);
+    setEditSelectedDepts(prev => Array.from(new Set([...prev, ...visibleIds])));
   };
 
   const handleDeselectAllEdit = () => {
     if (editDeptSearch.trim()) {
       const visibleIds = filteredEditDepts.map(d => d.id);
-      setEditSelectedDepts(editSelectedDepts.filter(id => !visibleIds.includes(id)));
+      setEditSelectedDepts(prev => prev.filter(id => !visibleIds.includes(id)));
     } else {
       setEditSelectedDepts([]);
     }
@@ -560,9 +554,8 @@ export default function ExamSessions() {
                       filteredEditDepts.map(dept => {
                         const isChecked = editSelectedDepts.includes(dept.id);
                         return (
-                          <div
+                          <label
                             key={dept.id}
-                            onClick={() => toggleEditDept(dept.id)}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -581,7 +574,7 @@ export default function ExamSessions() {
                               <input
                                 type="checkbox"
                                 checked={isChecked}
-                                onChange={() => {}}
+                                onChange={() => toggleEditDept(dept.id)}
                                 style={{ cursor: 'pointer', accentColor: '#4f46e5', width: '15px', height: '15px' }}
                               />
                               <span style={{
@@ -606,7 +599,7 @@ export default function ExamSessions() {
                             }}>
                               {dept.department_code}
                             </span>
-                          </div>
+                          </label>
                         );
                       })
                     )}
@@ -794,9 +787,8 @@ export default function ExamSessions() {
                       filteredAddDepts.map(dept => {
                         const isChecked = selectedDepts.includes(dept.id);
                         return (
-                          <div
+                          <label
                             key={dept.id}
-                            onClick={() => toggleAddDept(dept.id)}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -815,7 +807,7 @@ export default function ExamSessions() {
                               <input
                                 type="checkbox"
                                 checked={isChecked}
-                                onChange={() => {}}
+                                onChange={() => toggleAddDept(dept.id)}
                                 style={{ cursor: 'pointer', accentColor: '#4f46e5', width: '15px', height: '15px' }}
                               />
                               <span style={{
@@ -840,7 +832,7 @@ export default function ExamSessions() {
                             }}>
                               {dept.department_code}
                             </span>
-                          </div>
+                          </label>
                         );
                       })
                     )}
