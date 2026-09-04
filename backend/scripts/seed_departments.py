@@ -17,6 +17,9 @@ FINAL_DEPARTMENTS = [
     {"name": "Computer Science", "code": "CS"},
     {"name": "Economics", "code": "ECO"},
     {"name": "Education", "code": "EDU"},
+    {"name": "Energy Science", "code": "ENS"},
+    {"name": "Energy Technology", "code": "ENT"},
+    {"name": "Physics - Interdisciplinary with Energy Science", "code": "PIES"},
     {"name": "English", "code": "ENG"},
     {"name": "Environmental Science", "code": "ES"},
     {"name": "Food Science Technology and Nutrition", "code": "FSN"},
@@ -27,30 +30,41 @@ FINAL_DEPARTMENTS = [
     {"name": "Management", "code": "MS"},
     {"name": "Mathematics", "code": "MATH"},
     {"name": "Microbiology", "code": "MB"},
-    {"name": "Nutrition and Dietetics", "code": "ND"},
+    {"name": "Clinical Nutrition and Dietetics", "code": "CND"},
+    {"name": "Physical Education", "code": "PE"},
     {"name": "Physics", "code": "PHY"},
     {"name": "Political Science", "code": "POL"},
     {"name": "Psychology", "code": "PSY"},
-    {"name": "Sericulture", "code": "SERI"},
     {"name": "Sociology", "code": "SOC"},
     {"name": "Statistics", "code": "STAT"},
     {"name": "Tamil", "code": "TAM"},
     {"name": "Textiles and Apparel Design", "code": "TAD"},
-    {"name": "Zoology", "code": "ZOO"},
-    {"name": "Energy Science", "code": "ENS"},
-    {"name": "Energy Technology", "code": "ENT"},
-    {"name": "Physics Interdisciplinary with Energy Science", "code": "PIES"}
+    {"name": "Zoology", "code": "ZOO"}
 ]
 
 # Rename mapping to preserve candidate and question references
 RENAME_MAP = {
     "Food Science and Nutrition": "Food Science Technology and Nutrition",
-    "Management Studies": "Management"
+    "Management Studies": "Management",
+    "Nutrition and Dietetics": "Clinical Nutrition and Dietetics",
+    "Physics Interdisciplinary with Energy Science": "Physics - Interdisciplinary with Energy Science",
+    "Physics – Interdisciplinary with Energy Science": "Physics - Interdisciplinary with Energy Science"
 }
 
 def seed():
     db = SessionLocal()
     try:
+        # 0. Clean up any typo duplicate department entries
+        typos = db.query(Department).filter(
+            (Department.department_name.ilike("%Nutririon%")) | 
+            (Department.department_name.ilike("%Dieteics%"))
+        ).all()
+        for t in typos:
+            print(f"Cleaning up typo department record ID {t.id}: {t.department_name}")
+            t.department_code = f"OLD_TYPO_{t.id}"
+            t.is_active = False
+        db.commit()
+
         # 1. Handle renames first
         for old_name, new_name in RENAME_MAP.items():
             existing = db.query(Department).filter(Department.department_name == old_name).first()
@@ -59,7 +73,7 @@ def seed():
                 existing.department_name = new_name
                 db.commit()
                 
-        # 2. Deactivate any department that is not in the final list
+        # 2. Deactivate any department that is not in the final 31 list
         final_names = {d["name"] for d in FINAL_DEPARTMENTS}
         all_depts = db.query(Department).all()
         for dept in all_depts:
@@ -102,12 +116,16 @@ def seed():
                 existing.is_active = True
                 
         db.commit()
-        print(f"Sync complete. Added: {added_count}, Updated: {updated_count}.")
+        print(f"Sync complete. Total 31 departments active. Added: {added_count}, Updated: {updated_count}.")
     except Exception as e:
         db.rollback()
         print(f"Failed to sync departments: {e}")
     finally:
         db.close()
+
+if __name__ == "__main__":
+    seed()
+
 
 if __name__ == "__main__":
     seed()
