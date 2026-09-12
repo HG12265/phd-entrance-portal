@@ -1,3 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Mukta+Malar:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap');
+
+/* Baamini and Bamini Tamil Font Declarations */
+@font-face {
+  font-family: 'Baamini';
+  src: local('Baamini'), local('Baamini Plain'), local('Bamini'), url('./assets/fonts/Baamini.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bamini';
+  src: local('Bamini'), local('Bamini Plain'), local('Baamini'), url('./assets/fonts/Bamini.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --primary-color: #1e40af;
   --primary-hover: #1d4ed8;
@@ -18,6 +37,7 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-tamil: 'Baamini', 'Bamini', 'Baamini Plain', 'Baamini Standard', 'TAMBaamini', 'TABaamini', 'Mukta Malar', 'Noto Sans Tamil', 'Latha', sans-serif;
   --transition-all: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -442,8 +462,14 @@ p {
 }
 
 /* Tamil & formula styling */
-.tamil-text {
-  font-family: 'Mukta Malar', 'Latha', sans-serif;
+.tamil-text,
+.baamini-text,
+.bamini-text,
+.font-baamini,
+.font-bamini,
+.baamini,
+.bamini {
+  font-family: 'Baamini', 'Bamini', 'Baamini Plain', 'Baamini Standard', 'TAMBaamini', 'TABaamini', 'Mukta Malar', 'Noto Sans Tamil', 'Latha', sans-serif !important;
   font-size: 1.1rem;
   line-height: 1.6;
 }
