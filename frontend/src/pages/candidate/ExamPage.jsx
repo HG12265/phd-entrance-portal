@@ -605,7 +605,9 @@ export default function ExamPage() {
                       ★ Flagged for Review
                     </span>
                   )}
-                          {/* Question Text rendering with LaTeX & Tamil translations */}
+                </div>
+
+                {/* Question Text rendering with LaTeX & Tamil translations */}
                 <div style={{ marginBottom: '2rem' }}>
                   <div style={{ fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: 500, lineHeight: 1.6, marginBottom: '1rem' }}>
                     <MathText text={activeQuestion.question_text} department={candidate?.applied_subject || candidate?.department || activeQuestion?.department_name} />
@@ -660,7 +662,7 @@ export default function ExamPage() {
                       </label>
                     );
                   })}
-                </div>        </div>
+                </div>
 
               </div>
 
