@@ -2,24 +2,51 @@ import React, { memo } from 'react';
 import { MathJax } from 'better-react-mathjax';
 import { getImageUrl } from '../services/api';
 
+const cleanBaaminiRomanNumerals = (str) => {
+  if (!str || typeof str !== 'string') return str;
+  // Auto-correct erroneous Baamini-to-Unicode conversion artifacts where 'i', 'ii', 'iii' became 'ை', 'ைை', 'ைைை'
+  return str
+    .replace(/(^|[\s(])ைைை([.\s,)\]]|$)/g, '$1iii$2')
+    .replace(/(^|[\s(])ைை([.\s,)\]]|$)/g, '$1ii$2')
+    .replace(/(^|[\s(])ை([.\s,)\]]|$)/g, '$1i$2')
+    .replace(/\bைைை\s+மட்டும்/g, 'iii மட்டும்')
+    .replace(/\bைை\s+மட்டும்/g, 'ii மட்டும்')
+    .replace(/\bை\s+மட்டும்/g, 'i மட்டும்');
+};
+
 const isBaaminiText = (str) => {
   if (!str || typeof str !== 'string') return false;
-  // Baamini text patterns: semicolons inside words or common Baamini character sequences
+  // Comprehensive Baamini Tamil font ASCII pattern detection
   const baaminiPatterns = [
-    /;[a-zA-Z0-9]/,      // Semicolon followed by letter (e.g. q;, k;, n;, d;)
-    /[a-zA-Z];/,         // Letter followed by semicolon (e.g. hy;, W;, d;)
-    /,lk;/,              // ,lk;
-    /vd;w/,              // vd;w
-    /nrhy;/,             // nrhy;
-    /Kjd;/,              // Kjd;
-    /Kjypy;/,            // Kjypy;
-    /ngW/,               // ngW
-    /Nky;/,              // Nky;
-    /ghly;/,             // ghly;
-    /rpj;jh;/,           // rpj;jh;
-    /vdg;gL/,            // vdg;gL
-    /jkpo;/,             // jkpo;
-    /ehtyh;/             // ehtyh;
+    /;/,                   // Any semicolon (e.g. q;, k;, n;, d;, hy;, W;, j;, r;, l;, t;, y;, s;, z;, p;, m;, g;)
+    /N[a-zA-Z]/,           // N followed by letter (e.g. Nj, Nk, Nu, Nd, Ng, Nr, Nt, Nf, Np, Nl)
+    /W[a-zA-Z}]/,          // W followed by letter or } (e.g. W}, W;)
+    /[a-z]H/i,             // H at end of lowercase word or inside (e.g. pfH, feH, peH, juH)
+    /kzp/,                 // kzp (மணி)
+    /jp[a-z]/i,            // jp (தி)
+    /rhp/i,                // rhp (சரி)
+    /rjh/i,                // rjh (சதா)
+    /Rth/i,                // Rth (சுவா)
+    /i,ii/i,               // i,ii pattern (i,ii,iii rhp)
+    /,lk/i,                // ,lk (இடம்)
+    /,il/i,                // ,il (இடை)
+    /,i/i,                 // ,i
+    /,]/i,                 // ,]
+    /Fz/i,                 // Fz (குண)
+    /ck/i,                 // ck (உம)
+    /Fy/i,                 // Fy (குல)
+    /Njr/i,                // Njr (தேசிக)
+    /Njrp/i,               // Njrp (தேசிக)
+    /jpah/i,               // jpah (தியா)
+    /kp[a-z]/i,            // kp (மி)
+    /rp[a-z]/i,            // rp (சி)
+    /lp[a-z]/i,            // lp (டி)
+    /fp[a-z]/i,            // fp (கி)
+    /gp[a-z]/i,            // gp (பி)
+    /yp[a-z]/i,            // yp (லி)
+    /tp[a-z]/i,            // tp (வி)
+    /zp[a-z]/i,            // zp (ணி)
+    /np[a-z]/i             // np (நி)
   ];
   return baaminiPatterns.some(pattern => pattern.test(str));
 };
@@ -27,14 +54,15 @@ const isBaaminiText = (str) => {
 function MathText({ text, className = "", isTamil = false }) {
   if (!text) return null;
   
-  const shouldApplyTamilFont = isTamil || isBaaminiText(text);
+  const processedText = cleanBaaminiRomanNumerals(text);
+  const shouldApplyTamilFont = isTamil || isBaaminiText(processedText);
   const fontStyle = shouldApplyTamilFont ? { fontFamily: "'Bamini', 'Bamini Plain', 'Baamini', 'Baamini Plain', 'Mukta Malar', 'Latha', sans-serif" } : {};
   const fontClass = shouldApplyTamilFont ? 'tamil-font' : '';
   const combinedClass = `${className} ${fontClass}`.trim();
 
   // Check if text contains embedded <img ... /> tags
   const imgRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*\/?>/gi;
-  if (!imgRegex.test(text)) {
+  if (!imgRegex.test(processedText)) {
     return (
       <span className={combinedClass} style={{ display: 'inline-block', wordBreak: 'break-word', whiteSpace: 'normal', ...fontStyle }}>
         <MathJax 
@@ -43,7 +71,7 @@ function MathText({ text, className = "", isTamil = false }) {
           className={fontClass}
           style={fontStyle}
         >
-          <span className={fontClass} style={fontStyle} dangerouslySetInnerHTML={{ __html: text }} />
+          <span className={fontClass} style={fontStyle} dangerouslySetInnerHTML={{ __html: processedText }} />
         </MathJax>
       </span>
     );
@@ -55,15 +83,15 @@ function MathText({ text, className = "", isTamil = false }) {
   imgRegex.lastIndex = 0;
   let match;
 
-  while ((match = imgRegex.exec(text)) !== null) {
+  while ((match = imgRegex.exec(processedText)) !== null) {
     if (match.index > lastIndex) {
-      segments.push({ type: 'text', content: text.substring(lastIndex, match.index) });
+      segments.push({ type: 'text', content: processedText.substring(lastIndex, match.index) });
     }
     segments.push({ type: 'image', src: match[1] });
     lastIndex = imgRegex.lastIndex;
   }
-  if (lastIndex < text.length) {
-    segments.push({ type: 'text', content: text.substring(lastIndex) });
+  if (lastIndex < processedText.length) {
+    segments.push({ type: 'text', content: processedText.substring(lastIndex) });
   }
 
   return (
@@ -112,3 +140,4 @@ function MathText({ text, className = "", isTamil = false }) {
 }
 
 export default memo(MathText);
+
