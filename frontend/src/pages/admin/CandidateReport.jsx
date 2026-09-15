@@ -241,6 +241,7 @@ export default function CandidateReport() {
                   {answers.map((ans) => {
                     const isCorrect = ans.is_correct;
                     const isUnanswered = !ans.candidate_answer;
+                    const currentDept = candidate?.department_name || candidate?.department || candidate?.applied_subject || exam?.department_name || ans?.department_name;
 
                     let bgStatus = '#e2e8f0'; // Gray (Unanswered)
                     let textStatusColor = '#475569';
@@ -257,7 +258,7 @@ export default function CandidateReport() {
                         <td><strong>{ans.display_no}</strong></td>
                         <td style={{ textAlign: 'left' }}>
                           <div style={{ marginBottom: '0.25rem', fontWeight: 500 }}>
-                            <MathText text={ans.question_text} department={candidate?.applied_subject || candidate?.department || exam?.department_name} />
+                            <MathText text={ans.question_text} department={currentDept} />
                           </div>
                           {ans.question_tamil && (
                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', borderLeft: '2px solid #cbd5e1', paddingLeft: '0.5rem', marginTop: '0.25rem' }}>
@@ -265,10 +266,10 @@ export default function CandidateReport() {
                             </div>
                           )}
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.8rem' }}>
-                            <div>A) <MathText text={ans.option_a} department={candidate?.applied_subject || candidate?.department || exam?.department_name} /></div>
-                            <div>B) <MathText text={ans.option_b} department={candidate?.applied_subject || candidate?.department || exam?.department_name} /></div>
-                            <div>C) <MathText text={ans.option_c} department={candidate?.applied_subject || candidate?.department || exam?.department_name} /></div>
-                            <div>D) <MathText text={ans.option_d} department={candidate?.applied_subject || candidate?.department || exam?.department_name} /></div>
+                            <div>A) <MathText text={ans.option_a} department={currentDept} /></div>
+                            <div>B) <MathText text={ans.option_b} department={currentDept} /></div>
+                            <div>C) <MathText text={ans.option_c} department={currentDept} /></div>
+                            <div>D) <MathText text={ans.option_d} department={currentDept} /></div>
                           </div>
                         </td>
                         <td>
