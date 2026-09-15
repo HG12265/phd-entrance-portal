@@ -14,12 +14,43 @@ const cleanBaaminiRomanNumerals = (str) => {
     .replace(/\bை\s+மட்டும்/g, 'i மட்டும்');
 };
 
+const isBaaminiText = (str) => {
+  if (!str || typeof str !== 'string') return false;
+  // Baamini Tamil font ASCII pattern detection:
+  // 1. Any letter followed by semicolon (pulli in Baamini e.g., q;, k;, n;, d;, j;, r;, l;, t;, y;, s;, z;, h;)
+  // 2. N or W followed by letter/symbol (e.g. Nj, Nk, W}, W;)
+  // 3. Lowercase letter followed by capital H (e.g. pfH, feH, peH, juH)
+  // 4. Specific Baamini root sequences (kzp, jp, rhp, rjh, Rth, Njr, i,ii)
+  const baaminiPatterns = [
+    /[a-zA-Z];/,            // Any letter followed by semicolon (100% unique to Baamini font!)
+    /N[a-zA-Z]/,            // N followed by letter (e.g. Nj, Nk, Nu, Nd, Ng, Nr, Nt, Nf)
+    /W[a-zA-Z}]/,           // W followed by letter or } (e.g. W}, W;)
+    /[a-z]H/i,              // H at end of lowercase word or inside (e.g. pfH, feH)
+    /kzp/,                  // kzp (மணி)
+    /jp[a-z]/i,             // jp (தி)
+    /rhp/i,                 // rhp (சரி)
+    /rjh/i,                 // rjh (சதா)
+    /Rth/i,                 // Rth (சுவா)
+    /i,ii/i,                // i,ii pattern (i,ii,iii rhp)
+    /,lk/i,                 // ,lk (இடம்)
+    /,il/i,                 // ,il (இடை)
+    /,i/i,                  // ,i
+    /,]/i,                  // ,]
+    /Fz/i,                  // Fz (குண)
+    /ck/i,                  // ck (உம)
+    /Fy/i,                  // Fy (குல)
+    /Njr/i,                 // Njr (தேசிக)
+    /Njrp/i,                // Njrp (தேசிக)
+    /jpah/i                 // jpah (தியா)
+  ];
+  return baaminiPatterns.some(pattern => pattern.test(str));
+};
+
 function MathText({ text, className = "", isTamil = false }) {
   if (!text) return null;
   
-  // Tamil Baamini font MUST ONLY be applied if isTamil is true (Tamil Department).
-  // All other 30+ departments (English, Computer Science, Chemistry, etc.) must NEVER use Baamini font.
-  const shouldApplyTamilFont = Boolean(isTamil);
+  const isBaamini = isBaaminiText(text);
+  const shouldApplyTamilFont = Boolean(isTamil || isBaamini);
   const processedText = shouldApplyTamilFont ? cleanBaaminiRomanNumerals(text) : text;
   const fontStyle = shouldApplyTamilFont ? { fontFamily: "'Bamini', 'Bamini Plain', 'Baamini', 'Baamini Plain', 'Mukta Malar', 'Latha', sans-serif" } : {};
   const fontClass = shouldApplyTamilFont ? 'tamil-font' : '';
@@ -105,5 +136,6 @@ function MathText({ text, className = "", isTamil = false }) {
 }
 
 export default memo(MathText);
+
 
 
