@@ -1,5 +1,3 @@
-@import './tamil_fonts.css';
-
 :root {
   --primary-color: #1e40af;
   --primary-hover: #1d4ed8;
@@ -23,34 +21,30 @@
   --transition-all: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Tamil Font Utility Class & MathJax Overrides - Applied ONLY to Tamil Department Elements */
-.tamil-font,
-.tamil-font *,
-.tamil-font .MathJax,
-.tamil-font .MathJax *,
-.tamil-font mjx-container,
-.tamil-font mjx-container *,
-.tamil-font mjx-math,
-.tamil-font mjx-math *,
-.tamil-font mjx-mtext,
-.tamil-font mjx-mtext *,
-.tamil-font mjx-utxt,
-.tamil-font mjx-utxt *,
-.tamil-font .mjx-chtml,
-.tamil-font .mjx-chtml *,
-.tamil-font span,
-.tamil-font span *,
-.tamil-font div,
-.tamil-font div *,
-.tamil-font p,
-.tamil-font p *,
-.dept-tamil,
-.dept-tamil *,
-[data-department="Tamil"],
-[data-department="Tamil"] *,
-[data-department="TAM"],
-[data-department="TAM"] * {
-  font-family: 'Bamini', 'Bamini Plain', 'Baamini', 'Baamini Plain', 'Mukta Malar', 'Latha', var(--font-sans), sans-serif !important;
+/* Tamil Legacy Fonts (Baamini / Bamini) */
+@font-face {
+  font-family: 'Baamini';
+  src: url('/fonts/Baamini-Plain.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bamini';
+  src: url('/fonts/Bamini.TTF') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.tamil-department-text,
+.tamil-department-text *,
+.tamil-text,
+.tamil-text * {
+  font-family: 'Baamini', 'Bamini', 'Inter', system-ui, sans-serif !important;
+  font-size: 1.12em;
+  line-height: 1.6;
 }
 
 * {

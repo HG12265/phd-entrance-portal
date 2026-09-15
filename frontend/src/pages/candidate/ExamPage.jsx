@@ -605,77 +605,62 @@ export default function ExamPage() {
                       ★ Flagged for Review
                     </span>
                   )}
+                          {/* Question Text rendering with LaTeX & Tamil translations */}
+                <div style={{ marginBottom: '2rem' }}>
+                  <div style={{ fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: 500, lineHeight: 1.6, marginBottom: '1rem' }}>
+                    <MathText text={activeQuestion.question_text} department={candidate?.applied_subject || candidate?.department || activeQuestion?.department_name} />
+                  </div>
+
+                  {activeQuestion.formula && (
+                    <div style={{ margin: '1rem 0', padding: '1rem', backgroundColor: 'var(--background-color)', borderLeft: '4px solid var(--primary-color)', borderRadius: '0.25rem' }}>
+                      <MathText text={activeQuestion.formula} department={candidate?.applied_subject || candidate?.department || activeQuestion?.department_name} />
+                    </div>
+                  )}
+
+                  {activeQuestion.question_tamil && (
+                    <div className="tamil-text" style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-color)', paddingTop: '1rem', marginTop: '1rem', lineHeight: 1.6 }}>
+                      {activeQuestion.question_tamil}
+                    </div>
+                  )}
                 </div>
 
-                {/* Question Text rendering with LaTeX & Tamil translations */}
-                {(() => {
-                  const isTamilDept = Boolean(
-                    candidate?.department_name?.toLowerCase().includes('tamil') ||
-                    candidate?.applied_subject?.toLowerCase().includes('tamil') ||
-                    candidate?.department_code?.toUpperCase() === 'TAM' ||
-                    activeQuestion?.department_name?.toLowerCase().includes('tamil') ||
-                    activeQuestion?.department_code?.toUpperCase() === 'TAM'
-                  );
-                  return (
-                    <>
-                      <div style={{ marginBottom: '2rem' }}>
-                        <div style={{ fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: 500, lineHeight: 1.6, marginBottom: '1rem' }}>
-                          <MathText text={activeQuestion.question_text} isTamil={isTamilDept} />
-                        </div>
-
-                        {activeQuestion.formula && (
-                          <div style={{ margin: '1rem 0', padding: '1rem', backgroundColor: 'var(--background-color)', borderLeft: '4px solid var(--primary-color)', borderRadius: '0.25rem' }}>
-                            <MathText text={activeQuestion.formula} isTamil={isTamilDept} />
-                          </div>
-                        )}
-
-                        {activeQuestion.question_tamil && (
-                          <div className="tamil-text" style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-color)', paddingTop: '1rem', marginTop: '1rem', lineHeight: 1.6 }}>
-                            {activeQuestion.question_tamil}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Options Group List */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginBottom: '2rem' }}>
-                        {['option_a', 'option_b', 'option_c', 'option_d'].map((key, optIdx) => {
-                          const optionChar = ['A', 'B', 'C', 'D'][optIdx];
-                          const isSelected = activeQuestion.selected_option === optionChar;
-                          return (
-                            <label
-                              key={key}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '1rem',
-                                padding: '1rem 1.25rem',
-                                border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                borderRadius: '0.5rem',
-                                backgroundColor: isSelected ? 'var(--primary-light)' : 'var(--card-background)',
-                                cursor: isTimeOver ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.15s ease',
-                                opacity: isTimeOver ? 0.8 : 1
-                              }}
-                            >
-                              <input
-                                type="radio"
-                                name="exam-options"
-                                checked={isSelected}
-                                disabled={isTimeOver}
-                                onChange={() => handleSelectOption(optionChar)}
-                                style={{ width: '20px', height: '20px', cursor: isTimeOver ? 'not-allowed' : 'pointer' }}
-                              />
-                              <span style={{ fontSize: '0.95rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                <strong style={{ color: isSelected ? 'var(--primary-color)' : 'var(--text-secondary)' }}>{optionChar}.</strong>
-                                <MathText text={activeQuestion[key]} isTamil={isTamilDept} />
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </>
-                  );
-                })()}
+                {/* Options Group List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginBottom: '2rem' }}>
+                  {['option_a', 'option_b', 'option_c', 'option_d'].map((key, optIdx) => {
+                    const optionChar = ['A', 'B', 'C', 'D'][optIdx];
+                    const isSelected = activeQuestion.selected_option === optionChar;
+                    return (
+                      <label
+                        key={key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '1rem',
+                          padding: '1rem 1.25rem',
+                          border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                          borderRadius: '0.5rem',
+                          backgroundColor: isSelected ? 'var(--primary-light)' : 'var(--card-background)',
+                          cursor: isTimeOver ? 'not-allowed' : 'pointer',
+                          transition: 'all 0.15s ease',
+                          opacity: isTimeOver ? 0.8 : 1
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="exam-options"
+                          checked={isSelected}
+                          disabled={isTimeOver}
+                          onChange={() => handleSelectOption(optionChar)}
+                          style={{ width: '20px', height: '20px', cursor: isTimeOver ? 'not-allowed' : 'pointer' }}
+                        />
+                        <span style={{ fontSize: '0.95rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <strong style={{ color: isSelected ? 'var(--primary-color)' : 'var(--text-secondary)' }}>{optionChar}.</strong>
+                          <MathText text={activeQuestion[key]} department={candidate?.applied_subject || candidate?.department || activeQuestion?.department_name} />
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>        </div>
 
               </div>
 
@@ -1019,13 +1004,6 @@ export default function ExamPage() {
                   gap: '1.25rem'
                 }}>
                   {questions.map((q, idx) => {
-                    const isTamilDept = Boolean(
-                      candidate?.department_name?.toLowerCase().includes('tamil') ||
-                      candidate?.applied_subject?.toLowerCase().includes('tamil') ||
-                      candidate?.department_code?.toUpperCase() === 'TAM' ||
-                      q?.department_name?.toLowerCase().includes('tamil') ||
-                      q?.department_code?.toUpperCase() === 'TAM'
-                    );
                     return (
                       <div key={q.question_id} style={{
                         paddingBottom: '1.25rem',
@@ -1035,7 +1013,7 @@ export default function ExamPage() {
                         <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.75rem', color: 'var(--text-primary)', display: 'flex', gap: '0.5rem' }}>
                           <span>{idx + 1}.</span>
                           <div style={{ flex: 1 }}>
-                            <MathText text={q.question_text} isTamil={isTamilDept} />
+                            <MathText text={q.question_text} />
                           </div>
                         </div>
                         
@@ -1109,7 +1087,7 @@ export default function ExamPage() {
                                   {opt}
                                 </span>
                                 <div style={{ flex: 1 }}>
-                                  <MathText text={optionText} isTamil={isTamilDept} />
+                                  <MathText text={optionText} />
                                 </div>
                                 {isSelected && (
                                   <span style={{

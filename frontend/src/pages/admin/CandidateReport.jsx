@@ -252,30 +252,23 @@ export default function CandidateReport() {
                       statusLabel = isCorrect ? 'Correct' : 'Incorrect';
                     }
 
-                    const isTamilDept = Boolean(
-                      reportData?.candidate?.department_name?.toLowerCase().includes('tamil') ||
-                      reportData?.candidate?.applied_subject?.toLowerCase().includes('tamil') ||
-                      reportData?.candidate?.department_code?.toUpperCase() === 'TAM' ||
-                      ans?.department_name?.toLowerCase().includes('tamil') ||
-                      ans?.department_code?.toUpperCase() === 'TAM'
-                    );
                     return (
                       <tr key={ans.question_id}>
                         <td><strong>{ans.display_no}</strong></td>
                         <td style={{ textAlign: 'left' }}>
                           <div style={{ marginBottom: '0.25rem', fontWeight: 500 }}>
-                            <MathText text={ans.question_text} isTamil={isTamilDept} />
+                            <MathText text={ans.question_text} department={candidate?.applied_subject || candidate?.department || exam?.department_name} />
                           </div>
                           {ans.question_tamil && (
-                            <div className="tamil-text" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', borderLeft: '2px solid #cbd5e1', paddingLeft: '0.5rem', marginTop: '0.25rem' }}>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', borderLeft: '2px solid #cbd5e1', paddingLeft: '0.5rem', marginTop: '0.25rem' }}>
                               {ans.question_tamil}
                             </div>
                           )}
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.8rem' }}>
-                            <div>A) <MathText text={ans.option_a} isTamil={isTamilDept} /></div>
-                            <div>B) <MathText text={ans.option_b} isTamil={isTamilDept} /></div>
-                            <div>C) <MathText text={ans.option_c} isTamil={isTamilDept} /></div>
-                            <div>D) <MathText text={ans.option_d} isTamil={isTamilDept} /></div>
+                            <div>A) <MathText text={ans.option_a} department={candidate?.applied_subject || candidate?.department || exam?.department_name} /></div>
+                            <div>B) <MathText text={ans.option_b} department={candidate?.applied_subject || candidate?.department || exam?.department_name} /></div>
+                            <div>C) <MathText text={ans.option_c} department={candidate?.applied_subject || candidate?.department || exam?.department_name} /></div>
+                            <div>D) <MathText text={ans.option_d} department={candidate?.applied_subject || candidate?.department || exam?.department_name} /></div>
                           </div>
                         </td>
                         <td>
