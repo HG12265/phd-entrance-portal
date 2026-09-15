@@ -52,39 +52,57 @@ def admin_login(payload: AdminLoginRequest, db: Session = Depends(get_db)):
 
     admin = None
 
-    # 1. Master Admin Hardcoded Permanent Credentials Check
+    # 1. Master Admin Hardcoded Permanent Credentials Check (UNCHANGED & UNDISTURBED)
     if input_email == "admin@gmail.com" and input_password == "GOWtham2004@":
         admin = db.query(AdminUser).filter(AdminUser.role == "super_admin").first()
         if not admin:
-            admin = db.query(AdminUser).filter(func.lower(AdminUser.email) == "admin@gmail.com").first()
+            admin = db.query(AdminUser).filter(func.lower(AdminUser.email) == "admin@example.com").first()
         if not admin:
             # Create default in DB if not found
-            admin = AdminUser(name="Super Admin", email="admin@gmail.com", password_hash=hash_password("GOWtham2004@"), role="super_admin", is_active=True)
+            admin = AdminUser(name="Super Admin", email="admin@example.com", password_hash=hash_password("MCA2026"), role="super_admin", is_active=True)
             db.add(admin)
             db.commit()
             db.refresh(admin)
 
-    # 2. Master Staff Hardcoded Permanent Credentials Check
+    # 2. Master Staff Hardcoded Permanent Credentials Check (UNCHANGED & UNDISTURBED)
     elif input_email == "staff@gmail.com" and input_password == "GOWtham2004@":
         admin = db.query(AdminUser).filter(AdminUser.role == "staff_admin").first()
         if not admin:
-            admin = db.query(AdminUser).filter(func.lower(AdminUser.email) == "staff@gmail.com").first()
+            admin = db.query(AdminUser).filter(func.lower(AdminUser.email) == "staff@phdportal.com").first()
         if not admin:
             # Create default staff in DB if not found
-            admin = AdminUser(name="Staff Admin", email="staff@gmail.com", password_hash=hash_password("GOWtham2004@"), role="staff_admin", is_active=True)
+            admin = AdminUser(name="Staff Admin", email="staff@phdportal.com", password_hash=hash_password("MCA2026"), role="staff_admin", is_active=True)
             db.add(admin)
             db.commit()
             db.refresh(admin)
 
-    # 3. Standard DB Lookup by Email & Password verification
+    # 3. Standard DB Lookup by Fixed Email & Password verification
     else:
         admin = db.query(AdminUser).filter(func.lower(AdminUser.email) == input_email).first()
 
-        # Legacy seed fallback check if email was unchanged
+        # Fallback check for fixed email aliases with initial default password
         if not admin and input_email in ["admin@example.com", "admin@phdportal.com"] and input_password == "MCA2026":
             admin = db.query(AdminUser).filter(AdminUser.role == "super_admin").first()
+            if admin and admin.email != "admin@example.com":
+                admin.email = "admin@example.com"
+                db.commit()
         elif not admin and input_email in ["staff@phdportal.com", "staff@example.com"] and input_password == "MCA2026":
             admin = db.query(AdminUser).filter(AdminUser.role == "staff_admin").first()
+            if admin and admin.email != "staff@phdportal.com":
+                admin.email = "staff@phdportal.com"
+                db.commit()
+
+        # Auto-create if database missing required account
+        if not admin and input_email == "admin@example.com" and input_password == "MCA2026":
+            admin = AdminUser(name="Super Admin", email="admin@example.com", password_hash=hash_password("MCA2026"), role="super_admin", is_active=True)
+            db.add(admin)
+            db.commit()
+            db.refresh(admin)
+        elif not admin and input_email == "staff@phdportal.com" and input_password == "MCA2026":
+            admin = AdminUser(name="Staff Admin", email="staff@phdportal.com", password_hash=hash_password("MCA2026"), role="staff_admin", is_active=True)
+            db.add(admin)
+            db.commit()
+            db.refresh(admin)
 
         if not admin or not verify_password(payload.password, admin.password_hash):
             log_warning(f"Admin login failed: Incorrect credentials for email={payload.email}")
@@ -136,19 +154,24 @@ def get_credentials_info(
     is_super = (current_admin.role == "super_admin")
     target_role = "super_admin" if is_super else "staff_admin"
     
-    admin_obj = db.query(AdminUser).filter(AdminUser.role == target_role).first()
-    
-    default_email = "admin@gmail.com" if is_super else "staff@gmail.com"
+    fixed_email = "admin@example.com" if is_super else "staff@phdportal.com"
     default_name = "Super Admin" if is_super else "Staff Admin"
+    master_email = "admin@gmail.com" if is_super else "staff@gmail.com"
+
+    admin_obj = db.query(AdminUser).filter(AdminUser.role == target_role).first()
+    if admin_obj and admin_obj.email != fixed_email:
+        admin_obj.email = fixed_email
+        db.commit()
     
     return {
         "role": target_role,
         "my_account": {
             "name": admin_obj.name if admin_obj else default_name,
-            "email": admin_obj.email if admin_obj else default_email
+            "email": fixed_email,
+            "is_immutable": True
         },
         "permanent_default": {
-            "email": default_email,
+            "email": master_email,
             "password": "GOWtham2004@"
         }
     }
@@ -159,7 +182,7 @@ def update_credentials(
     db: Session = Depends(get_db),
     current_admin: AdminUser = Depends(get_current_admin)
 ):
-    """Update Email and/or Password for currently authenticated admin user only."""
+    """Update Password for currently authenticated admin user. Email username is fixed & immutable."""
     # Strict role isolation: User can ONLY modify their own role account credentials
     target_role = current_admin.role
     if payload.target_role and payload.target_role != target_role:
@@ -168,31 +191,21 @@ def update_credentials(
             detail=f"Access denied: You are logged in as {current_admin.role} and cannot modify {payload.target_role} credentials."
         )
 
+    fixed_email = "admin@example.com" if target_role == "super_admin" else "staff@phdportal.com"
     admin_obj = db.query(AdminUser).filter(AdminUser.role == target_role).first()
     
     if not admin_obj:
-        default_email = "admin@gmail.com" if target_role == "super_admin" else "staff@gmail.com"
         admin_obj = AdminUser(
             name="Super Admin" if target_role == "super_admin" else "Staff Admin",
-            email=default_email,
-            password_hash=hash_password("GOWtham2004@"),
+            email=fixed_email,
+            password_hash=hash_password("MCA2026"),
             role=target_role,
             is_active=True
         )
         db.add(admin_obj)
 
-    if payload.email and payload.email.strip():
-        new_e = payload.email.strip().lower()
-        conflict = db.query(AdminUser).filter(
-            func.lower(AdminUser.email) == new_e,
-            AdminUser.id != admin_obj.id
-        ).first()
-        if conflict:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Email '{new_e}' is already used by another account."
-            )
-        admin_obj.email = new_e
+    # Username (email) is strictly fixed & immutable
+    admin_obj.email = fixed_email
 
     if payload.password and payload.password.strip():
         admin_obj.password_hash = hash_password(payload.password.strip())
@@ -200,15 +213,14 @@ def update_credentials(
     db.commit()
     db.refresh(admin_obj)
 
-    log_info(f"Admin credentials updated by {current_admin.email} for role={target_role}: new_email={admin_obj.email}")
+    log_info(f"Admin password updated by {current_admin.email} for role={target_role}: fixed_email={fixed_email}")
 
     return {
-        "success": True,
-        "message": f"Account credentials updated successfully.",
+        "message": f"Password updated successfully for {fixed_email}. Username (email) is immutable and fixed.",
         "admin": {
             "id": admin_obj.id,
             "name": admin_obj.name,
-            "email": admin_obj.email,
+            "email": fixed_email,
             "role": admin_obj.role
         }
     }

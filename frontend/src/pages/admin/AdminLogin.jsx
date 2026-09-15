@@ -90,7 +90,7 @@ export default function AdminLogin() {
                 id="email"
                 type="email"
                 className="form-input"
-                placeholder="admin@phdportal.com"
+                placeholder="admin@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

@@ -149,25 +149,20 @@ export default function Dashboard() {
     setCredError('');
 
     const targetRole = adminUser.role || 'super_admin';
+    const fixedEmail = targetRole === 'super_admin' ? 'admin@example.com' : 'staff@phdportal.com';
 
     try {
       const res = await updateAdminCredentials({
         target_role: targetRole,
-        email: adminEmailInput.trim(),
+        email: fixedEmail,
         password: adminPasswordInput.trim() || undefined
       });
-      setCredSuccess(res.data.message || 'Account credentials updated successfully.');
+      setCredSuccess(res.data.message || 'Account password updated successfully.');
       setAdminPasswordInput('');
-
-      // Sync local storage if email changed
-      if (res.data.admin && res.data.admin.email) {
-        const updatedUser = { ...adminUser, email: res.data.admin.email };
-        localStorage.setItem('admin_user', JSON.stringify(updatedUser));
-      }
 
       fetchCredentialsInfo();
     } catch (err) {
-      setCredError(err.response?.data?.detail || 'Failed to update account credentials.');
+      setCredError(err.response?.data?.detail || 'Failed to update account password.');
     } finally {
       setCredLoading(false);
     }
@@ -390,27 +385,31 @@ export default function Dashboard() {
             {/* Form */}
             <form onSubmit={handleUpdateCredentials} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary-color)', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
-                Editing {adminUser.role === 'super_admin' ? 'Super Admin' : 'Staff Account'} Login Details
+                Security Settings ({adminUser.role === 'super_admin' ? 'Super Admin' : 'Staff Account'})
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 600 }}>Login Email Address</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <label className="form-label" style={{ fontWeight: 600, margin: 0 }}>Login Email Address</label>
+                  <span style={{ fontSize: '0.75rem', color: '#0369a1', backgroundColor: '#e0f2fe', padding: '0.1rem 0.5rem', borderRadius: '4px', border: '1px solid #bae6fd', fontWeight: 600 }}>
+                    🔒 Username Fixed (Immutable)
+                  </span>
+                </div>
                 <input
                   type="email"
                   className="form-input"
-                  placeholder={adminUser.role === 'super_admin' ? 'admin@gmail.com' : 'staff@gmail.com'}
-                  value={adminEmailInput}
-                  onChange={(e) => setAdminEmailInput(e.target.value)}
-                  required
+                  value={adminUser.role === 'super_admin' ? 'admin@example.com' : 'staff@phdportal.com'}
+                  disabled
+                  style={{ backgroundColor: '#f8fafc', color: '#475569', cursor: 'not-allowed', fontWeight: 600 }}
                 />
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 600 }}>New Password (Leave blank to keep unchanged)</label>
+                <label className="form-label" style={{ fontWeight: 600 }}>New Security Password (Leave blank to keep current password)</label>
                 <input
                   type="password"
                   className="form-input"
-                  placeholder="Enter new password (optional)"
+                  placeholder="Enter new password to update"
                   value={adminPasswordInput}
                   onChange={(e) => setAdminPasswordInput(e.target.value)}
                 />
@@ -422,7 +421,7 @@ export default function Dashboard() {
                 style={{ fontWeight: 600, padding: '0.65rem 1.25rem', marginTop: '0.5rem' }}
                 disabled={credLoading}
               >
-                {credLoading ? 'Updating Credentials...' : '💾 Save Account Credentials'}
+                {credLoading ? 'Updating Password...' : '💾 Change Account Password'}
               </button>
             </form>
 
