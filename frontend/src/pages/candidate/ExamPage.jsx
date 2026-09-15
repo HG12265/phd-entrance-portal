@@ -1013,7 +1013,7 @@ export default function ExamPage() {
                         <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.75rem', color: 'var(--text-primary)', display: 'flex', gap: '0.5rem' }}>
                           <span>{idx + 1}.</span>
                           <div style={{ flex: 1 }}>
-                            <MathText text={q.question_text} />
+                            <MathText text={q.question_text} department={candidate?.applied_subject || candidate?.department || q?.department_name} />
                           </div>
                         </div>
                         
@@ -1087,7 +1087,7 @@ export default function ExamPage() {
                                   {opt}
                                 </span>
                                 <div style={{ flex: 1 }}>
-                                  <MathText text={optionText} />
+                                  <MathText text={optionText} department={candidate?.applied_subject || candidate?.department || q?.department_name} />
                                 </div>
                                 {isSelected && (
                                   <span style={{
