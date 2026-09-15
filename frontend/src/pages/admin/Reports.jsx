@@ -319,27 +319,16 @@ export default function Reports() {
   const [clearingResults, setClearingResults] = useState(false);
 
   const handleClearAllReportsAndResults = async () => {
-    const confirmMessage = 
-      "⚠️ WARNING: CLEAR ALL REPORTS & EXAM RESULTS\n\n" +
-      "This action will PERMANENTLY DELETE all candidate exam attempts, marks, submitted answers, and result reports from the database.\n\n" +
+    const confirmMessage =
+      "Are you sure you want to permanently clear all Reports & Exam Results?\n\n" +
       "✅ SAFE (WILL NOT BE DELETED):\n" +
       " • Candidates List & Photos\n" +
       " • Question Bank / Questions\n" +
       " • Exam Sessions & Departments\n\n" +
-      "❌ WILL BE PERMANENTLY CLEARED:\n" +
-      " • Exam Attempts & Candidate Marks\n" +
-      " • Candidate Answers & Result Summaries\n\n" +
-      "Are you sure you want to clear all exam results and reports?";
+      "❌ WILL BE CLEARED:\n" +
+      " • Exam Attempts, Candidate Marks & Answers";
 
     if (!window.confirm(confirmMessage)) {
-      return;
-    }
-
-    const doubleCheckPrompt = window.prompt("Type CLEAR to confirm permanent deletion of all exam results:");
-    if (doubleCheckPrompt !== "CLEAR") {
-      if (doubleCheckPrompt !== null) {
-        alert("Confirmation text did not match 'CLEAR'. Operation cancelled.");
-      }
       return;
     }
 
@@ -391,10 +380,10 @@ export default function Reports() {
             <h1 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.6rem', fontWeight: 800 }}>Reports &amp; Exam Results</h1>
             <p style={{ margin: '0.3rem 0 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Overall results and department-wise exam reports. Summary reflects current filters.</p>
           </div>
-          
+
           {/* Dropdown Restructuring with Icons */}
           <div className="export-dropdown-container" style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            
+
             {/* Clear Reports & Exam Results Button */}
             <button
               type="button"
@@ -418,21 +407,21 @@ export default function Reports() {
                 transition: 'all 0.2s'
               }}
             >
-              🗑️ <span>{clearingResults ? 'Clearing Results...' : 'CLEAR Reports & Exam Results'}</span>
+              🗑️ <span>{clearingResults ? 'Clearing Results...' : 'CLEAR REPORTS'}</span>
             </button>
-            
+
             {/* Excel Dropdown Button */}
             <div style={{ position: 'relative' }}>
-              <button 
+              <button
                 className="btn"
                 onClick={() => {
                   setShowExcelDropdown(prev => !prev);
                   setShowPdfDropdown(false);
                 }}
                 disabled={exporting !== ''}
-                style={{ 
-                  display: 'inline-flex', 
-                  alignItems: 'center', 
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
                   gap: '0.5rem',
                   padding: '0.55rem 1.1rem',
                   backgroundColor: '#10b981',
@@ -521,16 +510,16 @@ export default function Reports() {
 
             {/* PDF Dropdown Button */}
             <div style={{ position: 'relative' }}>
-              <button 
+              <button
                 className="btn"
                 onClick={() => {
                   setShowPdfDropdown(prev => !prev);
                   setShowExcelDropdown(false);
                 }}
                 disabled={exporting !== ''}
-                style={{ 
-                  display: 'inline-flex', 
-                  alignItems: 'center', 
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
                   gap: '0.5rem',
                   padding: '0.55rem 1.1rem',
                   backgroundColor: '#ef4444',
