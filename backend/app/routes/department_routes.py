@@ -39,26 +39,60 @@ def create_department(
     db: Session = Depends(get_db),
     current_admin: AdminUser = Depends(get_current_admin)
 ):
-    """Create a new department. Verifies uniqueness of name and code."""
-    # Check if department_name exists
-    existing_name = db.query(Department).filter(Department.department_name == payload.department_name).first()
+    """Create a new department (or batch create multi-course departments). Verifies uniqueness of names and codes."""
+    if payload.courses and len(payload.courses) > 0:
+        created_depts = []
+        for c in payload.courses:
+            c_name = c.department_name.strip()
+            c_code = c.department_code.strip()
+            
+            existing_name = db.query(Department).filter(Department.department_name == c_name).first()
+            if existing_name:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Course/Department name '{c_name}' already exists and must be unique."
+                )
+            existing_code = db.query(Department).filter(Department.department_code == c_code).first()
+            if existing_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Course/Department code '{c_code}' already exists and must be unique."
+                )
+                
+            db_dept = Department(
+                department_name=c_name,
+                department_code=c_code,
+                description=c.description or payload.description
+            )
+            db.add(db_dept)
+            created_depts.append(db_dept)
+            
+        db.commit()
+        for d in created_depts:
+            db.refresh(d)
+        return created_depts[0]
+
+    # Single department creation
+    c_name = payload.department_name.strip()
+    c_code = payload.department_code.strip()
+    
+    existing_name = db.query(Department).filter(Department.department_name == c_name).first()
     if existing_name:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Department name must be unique"
+            detail=f"Department name '{c_name}' must be unique"
         )
         
-    # Check if department_code exists
-    existing_code = db.query(Department).filter(Department.department_code == payload.department_code).first()
+    existing_code = db.query(Department).filter(Department.department_code == c_code).first()
     if existing_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Department code must be unique"
+            detail=f"Department code '{c_code}' must be unique"
         )
 
     db_dept = Department(
-        department_name=payload.department_name,
-        department_code=payload.department_code,
+        department_name=c_name,
+        department_code=c_code,
         description=payload.description
     )
     db.add(db_dept)

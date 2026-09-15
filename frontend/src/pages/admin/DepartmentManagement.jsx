@@ -13,6 +13,27 @@ export default function DepartmentManagement() {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
+  const [hasMultipleCourses, setHasMultipleCourses] = useState(false);
+  const [courseItems, setCourseItems] = useState([
+    { name: '', code: '' },
+    { name: '', code: '' }
+  ]);
+
+  const addCourseItem = () => {
+    setCourseItems(prev => [...prev, { name: '', code: '' }]);
+  };
+
+  const removeCourseItem = (index) => {
+    setCourseItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCourseChange = (index, field, value) => {
+    setCourseItems(prev => {
+      const updated = [...prev];
+      updated[index][field] = value;
+      return updated;
+    });
+  };
 
   // Editing states
   const [editingDept, setEditingDept] = useState(null);
@@ -47,26 +68,55 @@ export default function DepartmentManagement() {
   // Handle Add Department
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !code) {
-      setError('Department Name and Code are required.');
-      return;
-    }
-
     setActionLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      await api.post('/api/admin/departments', {
-        department_name: name,
-        department_code: code,
-        description: description
-      });
+      if (hasMultipleCourses) {
+        const validCourses = courseItems
+          .filter(c => c.name.trim() && c.code.trim())
+          .map(c => ({
+            department_name: c.name.trim(),
+            department_code: c.code.trim(),
+            description: description
+          }));
 
-      setSuccess('Department added successfully!');
+        if (validCourses.length === 0) {
+          setError('Please provide at least one valid course name and code.');
+          setActionLoading(false);
+          return;
+        }
+
+        await api.post('/api/admin/departments', {
+          department_name: name.trim() || validCourses[0].department_name,
+          department_code: code.trim() || validCourses[0].department_code,
+          description: description,
+          courses: validCourses
+        });
+
+        setSuccess(`Successfully created ${validCourses.length} courses under department!`);
+      } else {
+        if (!name || !code) {
+          setError('Department Name and Code are required.');
+          setActionLoading(false);
+          return;
+        }
+
+        await api.post('/api/admin/departments', {
+          department_name: name,
+          department_code: code,
+          description: description
+        });
+
+        setSuccess('Department added successfully!');
+      }
+
       setName('');
       setCode('');
       setDescription('');
+      setHasMultipleCourses(false);
+      setCourseItems([{ name: '', code: '' }, { name: '', code: '' }]);
       fetchDepartments();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to create department.');
@@ -300,33 +350,114 @@ export default function DepartmentManagement() {
                 </div>
               </form>
             ) : (
-              // Add Form
+              //              {/* Add Form */}
               <form onSubmit={handleAddSubmit}>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="new-name">Department Name</label>
-                  <input
-                    id="new-name"
-                    type="text"
-                    className="form-input"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Mathematics"
-                    required
-                  />
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', background: '#f8fafc', padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <input
+                      type="checkbox"
+                      checked={hasMultipleCourses}
+                      onChange={(e) => setHasMultipleCourses(e.target.checked)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#1e293b' }}>
+                      ➕ Department offers Multiple Courses / Subjects?
+                    </span>
+                  </label>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label" htmlFor="new-code">Department Code</label>
-                  <input
-                    id="new-code"
-                    type="text"
-                    className="form-input"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="e.g. MATH"
-                    required
-                  />
-                </div>
+                {!hasMultipleCourses ? (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="new-name">Department Name</label>
+                      <input
+                        id="new-name"
+                        type="text"
+                        className="form-input"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Mathematics"
+                        required={!hasMultipleCourses}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="new-code">Department Code</label>
+                      <input
+                        id="new-code"
+                        type="text"
+                        className="form-input"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value)}
+                        placeholder="e.g. MATH"
+                        required={!hasMultipleCourses}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="dept-group-name">Main Department Name</label>
+                      <input
+                        id="dept-group-name"
+                        type="text"
+                        className="form-input"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Energy Science"
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '1rem', background: '#f1f5f9', padding: '0.8rem', borderRadius: '8px' }}>
+                      <label className="form-label" style={{ fontWeight: 700, marginBottom: '0.6rem', color: '#0f172a' }}>
+                        Courses / Subjects under this Department:
+                      </label>
+                      {courseItems.map((item, idx) => (
+                        <div key={idx} style={{ background: '#ffffff', padding: '0.6rem', borderRadius: '6px', marginBottom: '0.6rem', border: '1px solid #cbd5e1' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569' }}>Course {idx + 1}</span>
+                            {courseItems.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeCourseItem(idx)}
+                                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                              >
+                                ✕ Remove
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            className="form-input mb-2"
+                            style={{ fontSize: '0.82rem', padding: '0.4rem 0.6rem', marginBottom: '0.4rem' }}
+                            placeholder={`Course Name (e.g. Ph.D. ${name || 'Energy Technology'})`}
+                            value={item.name}
+                            onChange={(e) => handleCourseChange(idx, 'name', e.target.value)}
+                            required
+                          />
+                          <input
+                            type="text"
+                            className="form-input"
+                            style={{ fontSize: '0.82rem', padding: '0.4rem 0.6rem' }}
+                            placeholder="Course Code (e.g. ET-01)"
+                            value={item.code}
+                            onChange={(e) => handleCourseChange(idx, 'code', e.target.value)}
+                            required
+                          />
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={addCourseItem}
+                        style={{ width: '100%', fontSize: '0.8rem', padding: '0.4rem', borderStyle: 'dashed' }}
+                      >
+                        ➕ Add Another Course
+                      </button>
+                    </div>
+                  </>
+                )}
 
                 <div className="form-group">
                   <label className="form-label" htmlFor="new-desc">Description (Optional)</label>
@@ -341,7 +472,7 @@ export default function DepartmentManagement() {
                 </div>
 
                 <button type="submit" className="btn btn-primary w-full mt-4" disabled={actionLoading}>
-                  {actionLoading ? 'Creating...' : 'Create Department'}
+                  {actionLoading ? 'Creating...' : (hasMultipleCourses ? `Create ${courseItems.filter(c => c.name.trim()).length || ''} Courses` : 'Create Department')}
                 </button>
               </form>
             )}

@@ -1,6 +1,11 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
+
+class CourseInputItem(BaseModel):
+    department_name: str = Field(..., min_length=1)
+    department_code: str = Field(..., min_length=1)
+    description: Optional[str] = None
 
 class DepartmentBase(BaseModel):
     department_name: str = Field(..., min_length=1)
@@ -12,6 +17,7 @@ class DepartmentCreate(BaseModel):
     department_name: str = Field(..., min_length=1, description="Name of the department")
     department_code: str = Field(..., min_length=1, description="Unique short code of the department")
     description: Optional[str] = None
+    courses: Optional[List[CourseInputItem]] = None
 
 class DepartmentUpdate(BaseModel):
     department_name: Optional[str] = None

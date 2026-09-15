@@ -200,7 +200,9 @@ def find_candidate_photo(application_id: str) -> Dict[str, Any]:
     }
 
 def resolve_candidate_department(dep_str: str, sub_str: str, depts) -> dict:
-    """Resolve department mapping dynamically following priority rules."""
+    """Resolve department mapping dynamically following priority rules.
+    Prioritizes sub_str (Programme Offered / Subject) to support multi-course departments.
+    """
     dep_str = str(dep_str).strip() if dep_str and not pd.isna(dep_str) else ""
     sub_str = str(sub_str).strip() if sub_str and not pd.isna(sub_str) else ""
     
@@ -219,42 +221,35 @@ def resolve_candidate_department(dep_str: str, sub_str: str, depts) -> dict:
     sub_lower = sub_str.lower()
     if sub_lower in aliases:
         sub_str = aliases[sub_lower]
-    
-    # Rule 1: Department exact name
-    if dep_str:
-        for d in depts:
-            if d.department_name == dep_str:
-                return {"id": d.id, "error": None}
-                
-    # Rule 2: Department code exact
-    if dep_str:
-        for d in depts:
-            if d.department_code == dep_str:
-                return {"id": d.id, "error": None}
-                
-    # Rule 3: Department case-insensitive trimmed
-    if dep_str:
-        dep_lower = dep_str.lower()
-        for d in depts:
-            if d.department_name.strip().lower() == dep_lower:
-                return {"id": d.id, "error": None}
-            if d.department_code.strip().lower() == dep_lower:
-                return {"id": d.id, "error": None}
-                
-    # Rule 4: Subject exact name
+
+    # Rule 1: Subject / Programme Offered exact match
     if sub_str:
         for d in depts:
-            if d.department_name == sub_str:
+            if d.department_name == sub_str or d.department_code == sub_str:
                 return {"id": d.id, "error": None}
-                
-    # Rule 5: Subject code exact
+
+    # Rule 2: Subject / Programme Offered case-insensitive trimmed match
     if sub_str:
+        sub_trim_lower = sub_str.lower()
         for d in depts:
-            if d.department_code == sub_str:
+            if d.department_name.strip().lower() == sub_trim_lower or d.department_code.strip().lower() == sub_trim_lower:
                 return {"id": d.id, "error": None}
-                
-    # Rule 6: Unique contains match
-    for text_val in (dep_str, sub_str):
+
+    # Rule 3: Department exact name or code
+    if dep_str:
+        for d in depts:
+            if d.department_name == dep_str or d.department_code == dep_str:
+                return {"id": d.id, "error": None}
+
+    # Rule 4: Department case-insensitive trimmed match
+    if dep_str:
+        dep_trim_lower = dep_str.lower()
+        for d in depts:
+            if d.department_name.strip().lower() == dep_trim_lower or d.department_code.strip().lower() == dep_trim_lower:
+                return {"id": d.id, "error": None}
+
+    # Rule 5: Unique contains match (checking sub_str first, then dep_str)
+    for text_val in (sub_str, dep_str):
         if not text_val:
             continue
         text_lower = text_val.lower()
