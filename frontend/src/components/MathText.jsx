@@ -2,11 +2,34 @@ import React, { memo } from 'react';
 import { MathJax } from 'better-react-mathjax';
 import { getImageUrl } from '../services/api';
 
+const isBaaminiText = (str) => {
+  if (!str || typeof str !== 'string') return false;
+  // Baamini text patterns: semicolons inside words or common Baamini character sequences
+  const baaminiPatterns = [
+    /;[a-zA-Z0-9]/,      // Semicolon followed by letter (e.g. q;, k;, n;, d;)
+    /[a-zA-Z];/,         // Letter followed by semicolon (e.g. hy;, W;, d;)
+    /,lk;/,              // ,lk;
+    /vd;w/,              // vd;w
+    /nrhy;/,             // nrhy;
+    /Kjd;/,              // Kjd;
+    /Kjypy;/,            // Kjypy;
+    /ngW/,               // ngW
+    /Nky;/,              // Nky;
+    /ghly;/,             // ghly;
+    /rpj;jh;/,           // rpj;jh;
+    /vdg;gL/,            // vdg;gL
+    /jkpo;/,             // jkpo;
+    /ehtyh;/             // ehtyh;
+  ];
+  return baaminiPatterns.some(pattern => pattern.test(str));
+};
+
 function MathText({ text, className = "", isTamil = false }) {
   if (!text) return null;
   
-  const fontStyle = isTamil ? { fontFamily: "'Bamini', 'Bamini Plain', 'Baamini', 'Baamini Plain', 'Mukta Malar', 'Latha', sans-serif" } : {};
-  const fontClass = isTamil ? 'tamil-font' : '';
+  const shouldApplyTamilFont = isTamil || isBaaminiText(text);
+  const fontStyle = shouldApplyTamilFont ? { fontFamily: "'Bamini', 'Bamini Plain', 'Baamini', 'Baamini Plain', 'Mukta Malar', 'Latha', sans-serif" } : {};
+  const fontClass = shouldApplyTamilFont ? 'tamil-font' : '';
   const combinedClass = `${className} ${fontClass}`.trim();
 
   // Check if text contains embedded <img ... /> tags
