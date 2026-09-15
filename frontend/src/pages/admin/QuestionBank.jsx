@@ -293,14 +293,16 @@ export default function QuestionBank() {
                           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{q.department_name}</span>
                         </td>
                         <td style={{ verticalAlign: 'top', fontWeight: 'bold' }}>{q.question_no}</td>
-                        <td>
+                        <td className={Boolean(q.department_id === 26 || q.department_id === '26' || q.department_name?.toLowerCase().includes('tamil') || q.department_code?.toUpperCase() === 'TAM') ? 'tamil-font' : ''}>
                           {(() => {
                             const isTamilQ = Boolean(
+                              q.department_id === 26 ||
+                              q.department_id === '26' ||
                               q.department_name?.toLowerCase().includes('tamil') ||
                               q.department_code?.toUpperCase() === 'TAM'
                             );
                             return (
-                              <>
+                              <div className={isTamilQ ? 'tamil-font' : ''}>
                                 <div style={{ fontWeight: 500, marginBottom: '0.5rem', color: '#1e293b' }}>
                                   <MathText text={q.question_text} isTamil={isTamilQ} />
                                 </div>
@@ -311,7 +313,7 @@ export default function QuestionBank() {
                                   <div><strong style={{ color: q.correct_option === 'C' ? 'var(--success-color)' : 'inherit' }}>C:</strong> <MathText text={q.option_c} isTamil={isTamilQ} /></div>
                                   <div><strong style={{ color: q.correct_option === 'D' ? 'var(--success-color)' : 'inherit' }}>D:</strong> <MathText text={q.option_d} isTamil={isTamilQ} /></div>
                                 </div>
-                              </>
+                              </div>
                             );
                           })()}
                         </td>

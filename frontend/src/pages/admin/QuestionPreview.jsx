@@ -112,10 +112,13 @@ export default function QuestionPreview() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                 {(() => {
                   const isTamilDept = Boolean(
-                    departmentName?.toLowerCase().includes('tamil')
+                    departmentId === '26' ||
+                    departmentId === 26 ||
+                    departmentName?.toLowerCase().includes('tamil') ||
+                    questions.some(q => q.department_id === 26 || q.department_name?.toLowerCase().includes('tamil') || q.department_code === 'TAM')
                   );
                   return questions.map((q, idx) => (
-                    <div key={q.id} className="preview-question-block" style={{ pageBreakInside: 'avoid', borderBottom: '1px solid #f1f5f9', paddingBottom: '1.5rem' }}>
+                    <div key={q.id} className={`preview-question-block ${isTamilDept ? 'tamil-font' : ''}`} style={{ pageBreakInside: 'avoid', borderBottom: '1px solid #f1f5f9', paddingBottom: '1.5rem' }}>
                       <div style={{ display: 'flex', gap: '0.75rem', fontSize: '1.05rem', fontWeight: 600, color: '#1e293b', marginBottom: '1rem' }}>
                         <span style={{ minWidth: '24px' }}>{q.question_no}.</span>
                         <div style={{ flex: 1, lineHeight: '1.5' }}>
