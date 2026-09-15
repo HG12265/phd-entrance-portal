@@ -2,9 +2,12 @@ import React, { memo } from 'react';
 import { MathJax } from 'better-react-mathjax';
 import { getImageUrl } from '../services/api';
 
-function MathText({ text, className = "" }) {
+function MathText({ text, className = "", isTamil = false }) {
   if (!text) return null;
   
+  const fontClass = isTamil ? 'tamil-font' : '';
+  const combinedClass = `${className} ${fontClass}`.trim();
+
   // Check if text contains embedded <img ... /> tags
   const imgRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*\/?>/gi;
   if (!imgRegex.test(text)) {
@@ -12,10 +15,10 @@ function MathText({ text, className = "" }) {
       <MathJax 
         inline 
         dynamic 
-        className={className}
+        className={combinedClass}
         style={{ display: 'inline-block', wordBreak: 'break-word', whiteSpace: 'normal' }}
       >
-        <span dangerouslySetInnerHTML={{ __html: text }} />
+        <span className={fontClass} dangerouslySetInnerHTML={{ __html: text }} />
       </MathJax>
     );
   }
@@ -38,7 +41,7 @@ function MathText({ text, className = "" }) {
   }
 
   return (
-    <div className={className} style={{ display: 'inline-block', width: '100%' }}>
+    <div className={combinedClass} style={{ display: 'inline-block', width: '100%' }}>
       {segments.map((seg, idx) => {
         if (seg.type === 'text') {
           if (!seg.content.trim()) return null;
@@ -47,9 +50,10 @@ function MathText({ text, className = "" }) {
               key={idx}
               inline 
               dynamic 
+              className={fontClass}
               style={{ display: 'inline-block', wordBreak: 'break-word', whiteSpace: 'normal' }}
             >
-              <span dangerouslySetInnerHTML={{ __html: seg.content }} />
+              <span className={fontClass} dangerouslySetInnerHTML={{ __html: seg.content }} />
             </MathJax>
           );
         } else {

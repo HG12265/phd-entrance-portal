@@ -294,16 +294,26 @@ export default function QuestionBank() {
                         </td>
                         <td style={{ verticalAlign: 'top', fontWeight: 'bold' }}>{q.question_no}</td>
                         <td>
-                          <div style={{ fontWeight: 500, marginBottom: '0.5rem', color: '#1e293b' }}>
-                            <MathText text={q.question_text} />
-                          </div>
+                          {(() => {
+                            const isTamilQ = Boolean(
+                              q.department_name?.toLowerCase().includes('tamil') ||
+                              q.department_code?.toUpperCase() === 'TAM'
+                            );
+                            return (
+                              <>
+                                <div style={{ fontWeight: 500, marginBottom: '0.5rem', color: '#1e293b' }}>
+                                  <MathText text={q.question_text} isTamil={isTamilQ} />
+                                </div>
 
-                          <div className="grid grid-2" style={{ gap: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>
-                            <div><strong style={{ color: q.correct_option === 'A' ? 'var(--success-color)' : 'inherit' }}>A:</strong> <MathText text={q.option_a} /></div>
-                            <div><strong style={{ color: q.correct_option === 'B' ? 'var(--success-color)' : 'inherit' }}>B:</strong> <MathText text={q.option_b} /></div>
-                            <div><strong style={{ color: q.correct_option === 'C' ? 'var(--success-color)' : 'inherit' }}>C:</strong> <MathText text={q.option_c} /></div>
-                            <div><strong style={{ color: q.correct_option === 'D' ? 'var(--success-color)' : 'inherit' }}>D:</strong> <MathText text={q.option_d} /></div>
-                          </div>
+                                <div className="grid grid-2" style={{ gap: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>
+                                  <div><strong style={{ color: q.correct_option === 'A' ? 'var(--success-color)' : 'inherit' }}>A:</strong> <MathText text={q.option_a} isTamil={isTamilQ} /></div>
+                                  <div><strong style={{ color: q.correct_option === 'B' ? 'var(--success-color)' : 'inherit' }}>B:</strong> <MathText text={q.option_b} isTamil={isTamilQ} /></div>
+                                  <div><strong style={{ color: q.correct_option === 'C' ? 'var(--success-color)' : 'inherit' }}>C:</strong> <MathText text={q.option_c} isTamil={isTamilQ} /></div>
+                                  <div><strong style={{ color: q.correct_option === 'D' ? 'var(--success-color)' : 'inherit' }}>D:</strong> <MathText text={q.option_d} isTamil={isTamilQ} /></div>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </td>
                         <td style={{ verticalAlign: 'top', textAlign: 'center' }}>
                           <span className="user-badge" style={{ backgroundColor: 'var(--success-bg)', color: 'var(--success-color)', fontWeight: 'bold' }}>

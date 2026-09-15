@@ -110,68 +110,71 @@ export default function QuestionPreview() {
               <p style={{ textAlign: 'center', color: '#64748b' }}>No active questions uploaded for this department.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                {questions.map((q, idx) => (
-                  <div key={q.id} className="preview-question-block" style={{ pageBreakInside: 'avoid', borderBottom: '1px solid #f1f5f9', paddingBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', gap: '0.75rem', fontSize: '1.05rem', fontWeight: 600, color: '#1e293b', marginBottom: '1rem' }}>
-                      <span style={{ minWidth: '24px' }}>{q.question_no}.</span>
-                      <div style={{ flex: 1, lineHeight: '1.5' }}>
-                        <MathText text={q.question_text} />
+                {(() => {
+                  const isTamilDept = Boolean(
+                    departmentName?.toLowerCase().includes('tamil')
+                  );
+                  return questions.map((q, idx) => (
+                    <div key={q.id} className="preview-question-block" style={{ pageBreakInside: 'avoid', borderBottom: '1px solid #f1f5f9', paddingBottom: '1.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.75rem', fontSize: '1.05rem', fontWeight: 600, color: '#1e293b', marginBottom: '1rem' }}>
+                        <span style={{ minWidth: '24px' }}>{q.question_no}.</span>
+                        <div style={{ flex: 1, lineHeight: '1.5' }}>
+                          <MathText text={q.question_text} isTamil={isTamilDept} />
+                        </div>
+                        <span className="no-print" style={{ fontSize: '0.8rem', fontWeight: 500, color: '#94a3b8', marginLeft: 'auto' }}>
+                          ({q.marks} Mark)
+                        </span>
                       </div>
-                      <span className="no-print" style={{ fontSize: '0.8rem', fontWeight: 500, color: '#94a3b8', marginLeft: 'auto' }}>
-                        ({q.marks} Mark)
-                      </span>
-                    </div>
 
-
-
-                    {/* Options list */}
-                    <div className="grid grid-2" style={{ gap: '1rem', paddingLeft: '2rem' }}>
-                      {['option_a', 'option_b', 'option_c', 'option_d'].map((optKey, oIdx) => {
-                        const optLetter = ['A', 'B', 'C', 'D'][oIdx];
-                        const isCorrect = q.correct_option === optLetter;
-                        return (
-                          <div 
-                            key={optKey} 
-                            style={{
-                              padding: '0.75rem 1rem',
-                              border: isCorrect ? '1px solid #86efac' : '1px solid #e2e8f0',
-                              borderRadius: '6px',
-                              backgroundColor: isCorrect ? '#f0fdf4' : '#ffffff',
-                              display: 'flex',
-                              gap: '0.5rem',
-                              alignItems: 'center'
-                            }}
-                          >
-                            <span style={{
-                              fontWeight: 'bold',
-                              color: isCorrect ? 'var(--success-color)' : '#64748b',
-                              fontSize: '0.9rem'
-                            }}>
-                              {optLetter}.
-                            </span>
-                            <div style={{ fontSize: '0.95rem', color: isCorrect ? '#166534' : '#334155' }}>
-                              <MathText text={q[optKey]} />
-                            </div>
-                            {isCorrect && (
-                              <span className="no-print" style={{
-                                marginLeft: 'auto',
-                                fontSize: '0.7rem',
-                                backgroundColor: 'var(--success-bg)',
-                                color: 'var(--success-color)',
-                                padding: '0.1rem 0.4rem',
-                                borderRadius: '4px',
-                                fontWeight: 'bold'
+                      {/* Options list */}
+                      <div className="grid grid-2" style={{ gap: '1rem', paddingLeft: '2rem' }}>
+                        {['option_a', 'option_b', 'option_c', 'option_d'].map((optKey, oIdx) => {
+                          const optLetter = ['A', 'B', 'C', 'D'][oIdx];
+                          const isCorrect = q.correct_option === optLetter;
+                          return (
+                            <div 
+                              key={optKey} 
+                              style={{
+                                padding: '0.75rem 1rem',
+                                border: isCorrect ? '1px solid #86efac' : '1px solid #e2e8f0',
+                                borderRadius: '6px',
+                                backgroundColor: isCorrect ? '#f0fdf4' : '#ffffff',
+                                display: 'flex',
+                                gap: '0.5rem',
+                                alignItems: 'center'
+                              }}
+                            >
+                              <span style={{
+                                fontWeight: 'bold',
+                                color: isCorrect ? 'var(--success-color)' : '#64748b',
+                                fontSize: '0.9rem'
                               }}>
-                                Correct Answer
+                                {optLetter}.
                               </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                              <div style={{ fontSize: '0.95rem', color: isCorrect ? '#166534' : '#334155' }}>
+                                <MathText text={q[optKey]} isTamil={isTamilDept} />
+                              </div>
+                              {isCorrect && (
+                                <span className="no-print" style={{
+                                  marginLeft: 'auto',
+                                  fontSize: '0.7rem',
+                                  backgroundColor: 'var(--success-bg)',
+                                  color: 'var(--success-color)',
+                                  padding: '0.1rem 0.4rem',
+                                  borderRadius: '4px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  Correct Answer
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
 
-                  </div>
-                ))}
+                    </div>
+                  ));
+                })()}
               </div>
             )}
           </div>
