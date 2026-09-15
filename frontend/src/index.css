@@ -1,3 +1,5 @@
+@import './tamil_fonts.css';
+
 :root {
   --primary-color: #1e40af;
   --primary-hover: #1d4ed8;
@@ -21,49 +23,27 @@
   --transition-all: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Tamil Legacy Fonts (Bamini / Baamini) */
-@font-face {
-  font-family: 'Bamini';
-  src: url('/fonts/Bamini.TTF') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Baamini';
-  src: url('/fonts/Baamini-Plain.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Baamini Plain';
-  src: url('/fonts/Baamini-Plain.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Bamini Plain';
-  src: url('/fonts/Bamini.TTF') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* Tamil Font Utility Class & MathJax Overrides - Applied ONLY to Tamil Department Elements */
 .tamil-font,
 .tamil-font *,
 .tamil-font .MathJax,
+.tamil-font .MathJax *,
 .tamil-font mjx-container,
+.tamil-font mjx-container *,
 .tamil-font mjx-math,
+.tamil-font mjx-math *,
+.tamil-font mjx-mtext,
+.tamil-font mjx-mtext *,
+.tamil-font mjx-utxt,
+.tamil-font mjx-utxt *,
 .tamil-font .mjx-chtml,
+.tamil-font .mjx-chtml *,
 .tamil-font span,
+.tamil-font span *,
 .tamil-font div,
+.tamil-font div *,
 .tamil-font p,
+.tamil-font p *,
 .dept-tamil,
 .dept-tamil *,
 [data-department="Tamil"],

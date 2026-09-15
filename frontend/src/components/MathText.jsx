@@ -5,6 +5,7 @@ import { getImageUrl } from '../services/api';
 function MathText({ text, className = "", isTamil = false }) {
   if (!text) return null;
   
+  const fontStyle = isTamil ? { fontFamily: "'Bamini', 'Bamini Plain', 'Baamini', 'Baamini Plain', 'Mukta Malar', 'Latha', sans-serif" } : {};
   const fontClass = isTamil ? 'tamil-font' : '';
   const combinedClass = `${className} ${fontClass}`.trim();
 
@@ -12,14 +13,16 @@ function MathText({ text, className = "", isTamil = false }) {
   const imgRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*\/?>/gi;
   if (!imgRegex.test(text)) {
     return (
-      <MathJax 
-        inline 
-        dynamic 
-        className={combinedClass}
-        style={{ display: 'inline-block', wordBreak: 'break-word', whiteSpace: 'normal' }}
-      >
-        <span className={fontClass} dangerouslySetInnerHTML={{ __html: text }} />
-      </MathJax>
+      <span className={combinedClass} style={{ display: 'inline-block', wordBreak: 'break-word', whiteSpace: 'normal', ...fontStyle }}>
+        <MathJax 
+          inline 
+          dynamic 
+          className={fontClass}
+          style={fontStyle}
+        >
+          <span className={fontClass} style={fontStyle} dangerouslySetInnerHTML={{ __html: text }} />
+        </MathJax>
+      </span>
     );
   }
 
@@ -41,20 +44,21 @@ function MathText({ text, className = "", isTamil = false }) {
   }
 
   return (
-    <div className={combinedClass} style={{ display: 'inline-block', width: '100%' }}>
+    <div className={combinedClass} style={{ display: 'inline-block', width: '100%', ...fontStyle }}>
       {segments.map((seg, idx) => {
         if (seg.type === 'text') {
           if (!seg.content.trim()) return null;
           return (
-            <MathJax 
-              key={idx}
-              inline 
-              dynamic 
-              className={fontClass}
-              style={{ display: 'inline-block', wordBreak: 'break-word', whiteSpace: 'normal' }}
-            >
-              <span className={fontClass} dangerouslySetInnerHTML={{ __html: seg.content }} />
-            </MathJax>
+            <span key={idx} className={fontClass} style={{ display: 'inline-block', wordBreak: 'break-word', whiteSpace: 'normal', ...fontStyle }}>
+              <MathJax 
+                inline 
+                dynamic 
+                className={fontClass}
+                style={fontStyle}
+              >
+                <span className={fontClass} style={fontStyle} dangerouslySetInnerHTML={{ __html: seg.content }} />
+              </MathJax>
+            </span>
           );
         } else {
           const fullSrc = getImageUrl(seg.src);
