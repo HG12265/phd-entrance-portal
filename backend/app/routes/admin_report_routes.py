@@ -7,11 +7,38 @@ from typing import Optional
 from app.database import get_db
 from app.models.admin import AdminUser
 from app.models.candidate import Candidate
+from app.models.exam_attempt import ExamAttempt
+from app.models.candidate_answer import CandidateAnswer
+from app.models.exam_attempt_reopen_audit import ExamAttemptReopenAudit
 from app.utils.auth_dependency import get_current_admin
 from app.services import report_service
 from app.logging_config import log_info
 
 router = APIRouter(prefix="/api/admin/reports")
+
+@router.delete("/clear-all-results")
+def clear_all_exam_results(
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(get_current_admin)
+):
+    """
+    Permanently deletes all candidate exam attempt records, scores, and candidate answer data from the database.
+    Does NOT delete Candidates, Candidate Photos, Questions, Exam Sessions, or Departments.
+    """
+    audits_deleted = db.query(ExamAttemptReopenAudit).delete(synchronize_session=False)
+    answers_deleted = db.query(CandidateAnswer).delete(synchronize_session=False)
+    attempts_deleted = db.query(ExamAttempt).delete(synchronize_session=False)
+    
+    db.commit()
+    
+    log_info(f"Admin cleared all exam results: attempts_deleted={attempts_deleted}, answers_deleted={answers_deleted}, audits_deleted={audits_deleted}, admin_email={admin.email}")
+    
+    return {
+        "message": "All exam results and candidate report data have been permanently cleared.",
+        "attempts_deleted": attempts_deleted,
+        "answers_deleted": answers_deleted,
+        "audits_deleted": audits_deleted
+    }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PHASE 15 ROUTES — defined first (static before dynamic)

@@ -316,6 +316,47 @@ export default function Reports() {
   const activeDeptForExport = detailDeptId || selectedDept;
   const summary = overallData ? overallData.summary : null;
 
+  const [clearingResults, setClearingResults] = useState(false);
+
+  const handleClearAllReportsAndResults = async () => {
+    const confirmMessage = 
+      "⚠️ WARNING: CLEAR ALL REPORTS & EXAM RESULTS\n\n" +
+      "This action will PERMANENTLY DELETE all candidate exam attempts, marks, submitted answers, and result reports from the database.\n\n" +
+      "✅ SAFE (WILL NOT BE DELETED):\n" +
+      " • Candidates List & Photos\n" +
+      " • Question Bank / Questions\n" +
+      " • Exam Sessions & Departments\n\n" +
+      "❌ WILL BE PERMANENTLY CLEARED:\n" +
+      " • Exam Attempts & Candidate Marks\n" +
+      " • Candidate Answers & Result Summaries\n\n" +
+      "Are you sure you want to clear all exam results and reports?";
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    const doubleCheckPrompt = window.prompt("Type CLEAR to confirm permanent deletion of all exam results:");
+    if (doubleCheckPrompt !== "CLEAR") {
+      if (doubleCheckPrompt !== null) {
+        alert("Confirmation text did not match 'CLEAR'. Operation cancelled.");
+      }
+      return;
+    }
+
+    setClearingResults(true);
+    try {
+      const res = await api.delete('/api/admin/reports/clear-all-results');
+      alert(`SUCCESS: All exam results & candidate reports cleared successfully!\n\nDeleted ${res.data.attempts_deleted} attempt records and ${res.data.answers_deleted} answer records.`);
+      fetchOverall();
+      fetchDeptWise();
+      setDetailData(null);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to clear exam results.');
+    } finally {
+      setClearingResults(false);
+    }
+  };
+
   return (
     <div className="dashboard-layout">
       <style>{`
@@ -352,7 +393,33 @@ export default function Reports() {
           </div>
           
           {/* Dropdown Restructuring with Icons */}
-          <div className="export-dropdown-container" style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+          <div className="export-dropdown-container" style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            
+            {/* Clear Reports & Exam Results Button */}
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={handleClearAllReportsAndResults}
+              disabled={clearingResults}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.55rem 1.1rem',
+                backgroundColor: '#dc2626',
+                borderColor: '#b91c1c',
+                color: '#ffffff',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                borderRadius: '6px',
+                cursor: clearingResults ? 'not-allowed' : 'pointer',
+                border: '1px solid transparent',
+                boxShadow: '0 4px 6px -1px rgba(220, 38, 38, 0.25)',
+                transition: 'all 0.2s'
+              }}
+            >
+              🗑️ <span>{clearingResults ? 'Clearing Results...' : 'CLEAR Reports & Exam Results'}</span>
+            </button>
             
             {/* Excel Dropdown Button */}
             <div style={{ position: 'relative' }}>
