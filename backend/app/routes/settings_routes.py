@@ -17,16 +17,21 @@ def get_public_setting(key: str, db: Session = Depends(get_db)):
     if not setting:
         if key == "portal_title":
             return {"key": "portal_title", "value": "PhD Admission Entrance"}
+        if key == "shuffle_questions":
+            return {"key": "shuffle_questions", "value": "true"}
         raise HTTPException(status_code=404, detail="Setting not found")
     return {"key": setting.key, "value": setting.value}
 
 @router.get("/admin/all")
 def get_all_settings(db: Session = Depends(get_db), current_admin: AdminUser = Depends(get_current_admin)):
     settings = db.query(SystemSetting).all()
-    # Ensure default portal_title is returned if not in DB
-    if not any(s.key == "portal_title" for s in settings):
-        return [{"key": "portal_title", "value": "PhD Admission Entrance"}]
-    return settings
+    res = list(settings)
+    keys_present = {s.key for s in settings}
+    if "portal_title" not in keys_present:
+        res.append(SystemSetting(key="portal_title", value="PhD Admission Entrance"))
+    if "shuffle_questions" not in keys_present:
+        res.append(SystemSetting(key="shuffle_questions", value="true"))
+    return res
 
 @router.put("/admin/{key}")
 def update_setting(key: str, payload: SettingUpdatePayload, db: Session = Depends(get_db), current_admin: AdminUser = Depends(get_current_admin)):

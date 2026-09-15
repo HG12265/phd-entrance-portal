@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import MathText from '../../components/MathText';
-import api, { getQuestions, deleteQuestion, getImageUrl } from '../../services/api';
+import api, { getQuestions, deleteQuestion, getImageUrl, getPublicSetting, updateSetting } from '../../services/api';
 
 export default function QuestionBank() {
   const [departments, setDepartments] = useState([]);
@@ -21,6 +21,37 @@ export default function QuestionBank() {
 
   const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
+
+  // Question Shuffle Setting state
+  const [isShuffleOn, setIsShuffleOn] = useState(true);
+  const [savingShuffle, setSavingShuffle] = useState(false);
+
+  // Fetch initial shuffle setting
+  useEffect(() => {
+    getPublicSetting('shuffle_questions')
+      .then(res => {
+        if (res.data && res.data.value !== undefined) {
+          setIsShuffleOn(res.data.value.toLowerCase() === 'true');
+        }
+      })
+      .catch(err => console.error('Failed to load shuffle setting:', err));
+  }, []);
+
+  const handleToggleShuffle = async (newValueStr) => {
+    setSavingShuffle(true);
+    setError('');
+    const newBool = newValueStr === 'true';
+    try {
+      await updateSetting('shuffle_questions', { value: newValueStr });
+      setIsShuffleOn(newBool);
+      setSuccess(`Question Shuffle is now ${newBool ? 'ENABLED (ON - Random Order)' : 'DISABLED (OFF - Original Excel Order)'}.`);
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to update question shuffle setting.');
+    } finally {
+      setSavingShuffle(false);
+    }
+  };
 
   // Toggle selection
   const toggleSelectQuestion = (id) => {
@@ -178,6 +209,89 @@ export default function QuestionBank() {
 
         {error && <div className="alert alert-danger">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
+
+        {/* Question Shuffle Setting Control Banner */}
+        <div className="card mb-4" style={{ 
+          display: 'flex', 
+          flexWrap: 'wrap',
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          padding: '1.1rem 1.5rem', 
+          borderRadius: '10px',
+          borderLeft: isShuffleOn ? '6px solid #10b981' : '6px solid #ef4444',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+          gap: '1rem'
+        }}>
+          <div style={{ flex: 1, minWidth: '280px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>
+                🔀 Candidate Question Order Setting:
+              </h3>
+              <span 
+                className="user-badge" 
+                style={{ 
+                  backgroundColor: isShuffleOn ? '#ecfdf5' : '#fef2f2', 
+                  color: isShuffleOn ? '#047857' : '#b91c1c', 
+                  border: isShuffleOn ? '1px solid #a7f3d0' : '1px solid #fecaca',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  padding: '0.3rem 0.75rem',
+                  borderRadius: '20px'
+                }}
+              >
+                {isShuffleOn ? '🔀 Shuffle ON (Random Order)' : '➡️ Shuffle OFF (Original Excel Order)'}
+              </span>
+            </div>
+            <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.875rem', color: '#64748b', lineHeight: 1.4 }}>
+              {isShuffleOn ? (
+                <span>Questions will be <strong>randomly shuffled</strong> for each candidate when they start their exam.</span>
+              ) : (
+                <span>Questions will be presented in the <strong>exact original sequence</strong> from the uploaded Excel file (no shuffling).</span>
+              )}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn"
+              style={{
+                backgroundColor: isShuffleOn ? '#10b981' : '#f1f5f9',
+                color: isShuffleOn ? '#ffffff' : '#475569',
+                fontWeight: 600,
+                border: isShuffleOn ? 'none' : '1px solid #cbd5e1',
+                padding: '0.55rem 1.25rem',
+                borderRadius: '8px',
+                cursor: savingShuffle ? 'not-allowed' : 'pointer',
+                boxShadow: isShuffleOn ? '0 2px 4px rgba(16, 185, 129, 0.3)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+              onClick={() => handleToggleShuffle('true')}
+              disabled={savingShuffle}
+            >
+              {savingShuffle && isShuffleOn ? 'Updating...' : '🔀 Shuffle ON'}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              style={{
+                backgroundColor: !isShuffleOn ? '#ef4444' : '#f1f5f9',
+                color: !isShuffleOn ? '#ffffff' : '#475569',
+                fontWeight: 600,
+                border: !isShuffleOn ? 'none' : '1px solid #cbd5e1',
+                padding: '0.55rem 1.25rem',
+                borderRadius: '8px',
+                cursor: savingShuffle ? 'not-allowed' : 'pointer',
+                boxShadow: !isShuffleOn ? '0 2px 4px rgba(239, 68, 68, 0.3)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+              onClick={() => handleToggleShuffle('false')}
+              disabled={savingShuffle}
+            >
+              {savingShuffle && !isShuffleOn ? 'Updating...' : '➡️ Shuffle OFF'}
+            </button>
+          </div>
+        </div>
 
         {/* Filter controls */}
         <div className="card mb-4">

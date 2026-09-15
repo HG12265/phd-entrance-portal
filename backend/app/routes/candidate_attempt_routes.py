@@ -15,6 +15,7 @@ from app.models.candidate import Candidate
 from app.models.question import Question
 from app.models.exam_attempt import ExamAttempt
 from app.models.candidate_answer import CandidateAnswer
+from app.models.settings import SystemSetting
 from app.utils.candidate_auth_dependency import get_current_candidate
 from app.routes.candidate_exam_routes import get_candidate_session_and_status
 from app.routes.candidate_submit_routes import finalize_attempt
@@ -205,14 +206,20 @@ def start_exam(
             detail=f"Exam questions for your subject are not ready (found {active_q_count} active questions instead of 70)."
         )
 
-    # Fetch and shuffle question IDs
+    # Fetch question IDs in original Excel order (by question_no and id)
     questions = db.query(Question).filter(
         Question.department_id == current_candidate.department_id,
         Question.is_active == True
-    ).all()
+    ).order_by(Question.question_no.asc(), Question.id.asc()).all()
     
     q_ids = [q.id for q in questions]
-    secrets.SystemRandom().shuffle(q_ids)
+
+    # Check system setting for question shuffling
+    shuffle_setting = db.query(SystemSetting).filter(SystemSetting.key == "shuffle_questions").first()
+    is_shuffle_enabled = (shuffle_setting.value.lower() == "true") if shuffle_setting else True
+
+    if is_shuffle_enabled:
+        secrets.SystemRandom().shuffle(q_ids)
 
     duration = timedelta(minutes=session.duration_minutes)
     sess_end_aware = session.end_time.replace(tzinfo=kolkata_tz)
