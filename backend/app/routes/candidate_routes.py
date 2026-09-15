@@ -93,17 +93,19 @@ def process_candidate_payload(
     if not parsed_dob:
         return {"candidate": None, "error": f"Invalid Date of Birth format: '{dob_val}'. Accepted formats: DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD.", "app_id": app_id_str}
         
-    # 4. Resolve Department & Subject
+    # 4. Resolve Department, Subject & Programme Offered
     dept_val = payload_dict.get("department")
     subject_val = payload_dict.get("subject")
+    prog_val = payload_dict.get("programme_offered")
     if not subject_val:
         subject_val = payload_dict.get("applied_subject")
         
     dept_str = str(dept_val).strip() if dept_val and not pd.isna(dept_val) else ""
     subject_str = str(subject_val).strip() if subject_val and not pd.isna(subject_val) else ""
+    prog_str = str(prog_val).strip() if prog_val and not pd.isna(prog_val) else ""
     
-    # Resolve Mapped Department ID
-    resolved_dept = resolve_candidate_department(dept_str, subject_str, depts)
+    # Resolve Mapped Department ID (checking Programme Offered first)
+    resolved_dept = resolve_candidate_department(dept_str, subject_str, depts, prog_str=prog_str)
     if resolved_dept["error"]:
         if resolved_dept["error"] == "Department mapping ambiguous":
             return {"candidate": None, "error": "Department mapping ambiguous", "app_id": app_id_str}
