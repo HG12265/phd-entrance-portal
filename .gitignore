@@ -33,3 +33,16 @@ backend/logs/
 # System files
 .DS_Store
 Thumbs.db
+
+# SSL Certificates & Security Files
+*.crt
+*.ca-bundle
+*.p7b
+*.key
+*.csr
+generated_csr.txt
+entrance_periyaruniversity_ac_in*
+
+# Root level temporary font files
+/Baamini-Plain.ttf
+/Bamini.TTF
